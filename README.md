@@ -1,8 +1,47 @@
-# Übersicht widgets
+# Mac desktop customization
 
-Desktop widgets for [Übersicht](https://github.com/felixhageloh/uebersicht): LLM status (Claude / OpenAI / Gemini), weather, calendar, now playing, and clock. React-style JSX runs inside Übersicht; data comes from local Python (and optional Swift) helpers.
+A single-source-of-truth theming stack for a Mac desktop. One TypeScript theme file drives the look of every layer at once — desktop widgets, window focus borders, menu bar, terminal, and the Hammerspoon scripting runtime — so `npm run theme <name>` re-skins the whole desktop in one pass.
 
-This repo has also grown to host other Mac customization code that shares the same design tokens — a [Hammerspoon](https://www.hammerspoon.org/) config, a [JankyBorders](https://github.com/FelixKratz/JankyBorders) config, a [Bartender 6](https://www.macbartender.com/) menu bar style override, and a [Warp](https://www.warp.dev/) terminal theme — all codegen'd from the active theme in `src/themes/` on every `npm run build`. Switching themes changes the look everywhere in one pass. A [Thaw](https://github.com/stonerl/Thaw) (Ice fork) codegen also exists but is deprecated in favor of Bartender; kept intact as a fallback. See `CLAUDE.md` for the architecture details.
+## What's in here
+
+**Übersicht widgets** (`src/*.tsx` → root `*.jsx`) — Five widgets for [Übersicht](https://github.com/felixhageloh/uebersicht), rendered as React-style JSX inside its WebView:
+
+- **LLM Status** — Claude / OpenAI / Gemini public status feeds, aggregated into one pill list
+- **Weather** — Open-Meteo, fixed coords or Mac geolocation
+- **Calendar** — macOS Calendar via a Swift EventKit helper
+- **Now Playing** — Spotify + [Kaset](https://kaset.app/) via AppleScript, with playback controls
+- **Clock** — centered on screen
+
+The first four auto-flow as a vertical column on the left — heights are measured at runtime, so adding/removing lines in one widget reflows the whole stack without hand-tuning `top` values.
+
+**System codegens** (`scripts/build-*.mjs`) — small Node scripts that read the active theme and emit native config for other Mac tools, so they share the widgets' colors and accents:
+
+- **[Hammerspoon](https://www.hammerspoon.org/)** (`hammerspoon/`) — emits `uber_theme.lua` consumed by `init.lua`
+- **[JankyBorders](https://github.com/FelixKratz/JankyBorders)** (`borders/bordersrc`) — focused/unfocused window border colors and width
+- **[Bartender 6](https://www.macbartender.com/)** — overrides Bartender's `stored_style` plist to brand the menu bar background and border
+- **[Warp](https://www.warp.dev/) terminal** — writes themes to `~/.warp/themes/uber-*.yaml` (ANSI palette, accent, transparency)
+- **[Thaw](https://github.com/stonerl/Thaw)** (Ice fork) — deprecated 2026-04-24 in favor of Bartender; codegen kept as a manual-invoke fallback
+
+**Python backends** (`*_fetch.py`) — invoked by widgets on their own refresh cadence and write JSON to stdout. A small compiled Swift helper (`calendar_eventkit`, built from `calendar_eventkit.swift`) speeds up calendar reads.
+
+## How the pieces connect
+
+```
+src/themes/<name>.ts                  one file per theme
+        │
+        └─ src/themes/_active.ts      single re-export pointer
+                  │
+                  ├─ build:widgets     → root *.jsx (Übersicht widgets)
+                  ├─ build:hammerspoon → hammerspoon/uber_theme.lua
+                  ├─ build:borders     → borders/bordersrc
+                  ├─ build:bartender   → Bartender stored_style plist
+                  ├─ build:warp        → ~/.warp/themes/uber-*.yaml
+                  └─ build:thaw        → (deprecated) Ice menu bar plist
+```
+
+Every consumer reads through `src/themes/_active.ts`. `npm run theme <name>` rewrites that one re-export and reruns every codegen, so widgets, window borders, menu bar, terminal, and Hammerspoon all change in the same build.
+
+See `CLAUDE.md` for architecture invariants (root `.jsx` size limits, ESM-not-bundled imports, the backdrop-filter keepalive animation, cross-bundle `window`-global state).
 
 ## Edit and build
 
