@@ -1,0 +1,119 @@
+# Übersicht widgets
+
+Desktop widgets for [Übersicht](https://github.com/felixhageloh/uebersicht): LLM status (Claude / OpenAI / Gemini), weather, calendar, now playing, and clock. React-style JSX runs inside Übersicht; data comes from local Python (and optional Swift) helpers.
+
+This repo has also grown to host other Mac customization code that shares the same design tokens — a [Hammerspoon](https://www.hammerspoon.org/) config, a [JankyBorders](https://github.com/FelixKratz/JankyBorders) config, a [Bartender 6](https://www.macbartender.com/) menu bar style override, and a [Warp](https://www.warp.dev/) terminal theme — all codegen'd from the active theme in `src/themes/` on every `npm run build`. Switching themes changes the look everywhere in one pass. A [Thaw](https://github.com/stonerl/Thaw) (Ice fork) codegen also exists but is deprecated in favor of Bartender; kept intact as a fallback. See `CLAUDE.md` for the architecture details.
+
+## Edit and build
+
+Widget **source** lives in TypeScript under `src/`. Übersicht loads the compiled **`*.jsx` files in this folder** (same directory as this README).
+
+1. Install dev tooling once: `npm install`
+2. After changing anything under `src/` (widgets, theme files, shared helpers), run **`npm run build`**
+3. Reload widgets in Übersicht (menubar → Refresh All Widgets, or restart the app)
+
+Optional: **`npm run typecheck`** runs `tsc --noEmit` only.
+
+`npm run build` runs five sister scripts in order: `build:widgets` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp`. They're also available individually if you only need one target (handy when tuning colors; e.g., theme tweaks that only affect widgets can just run `build:widgets`). `build:thaw` still exists as a manual-invoke fallback but isn't part of the default chain — see `CLAUDE.md`'s Thaw section.
+
+The widget build (`scripts/build-widgets.mjs`) uses esbuild to **transpile** (not bundle) each source file — TypeScript and JSX are converted but imports are left intact. It produces:
+
+- `src/widget_theme.js`, `src/widget_helpers.js` — compiled shared modules.
+- `src/themes/*.js` — compiled theme files (one per theme) plus the `_active.js` pointer that widgets resolve through at runtime.
+- `LLMStatus.jsx`, `Weather.jsx`, `Calendar.jsx`, `NowPlaying.jsx`, `Clock.jsx` at the repo root — small files that import from `./src/widget_theme.js`.
+
+Übersicht’s own Browserify + Babelify pipeline resolves the imports at runtime and bundles everything for its WebView. Keeping the root files small is important: Übersicht’s embedded Babel can silently fail on large pre-bundled files. Every root file also gets a leading `// active-theme: <name> (<digest>)` comment that changes whenever the theme or the shared module graph changes, which busts Übersicht's bundle cache on code edits.
+
+## Themes
+
+Design tokens live as one TypeScript file per theme in `src/themes/`. The currently-active theme is whatever `src/themes/_active.ts` re-exports; every consumer (widgets, Hammerspoon, JankyBorders, Bartender, Warp) reads through that pointer.
+
+- **`npm run theme`** — lists all themes, marks the current one with `*`.
+- **`npm run theme <name>`** — switches the active theme and rebuilds everything. Widgets re-render, JankyBorders hot-reloads, Bartender quits and relaunches to pick up the new style, and the Warp YAML is refreshed.
+- **Add a new theme** — copy `src/themes/default.ts` to `src/themes/<name>.ts`, tweak the values (the type checker enforces shape parity), then `npm run theme <name>`. See `CLAUDE.md` for the full field reference.
+
+Themes currently in the repo: **default** (cyan/amber/green/purple accents on a dark translucent card, baseline), **liquid-glass** (iOS Tahoe light frosted), **liquid-glass-dark** (Control Center smoked variant), **catppuccin-macchiato** (Catppuccin Macchiato palette with pastel Sky/Peach/Green/Mauve accents, Inter UI font, and Nerd Font glyphs in widget titles), **frutiger-aero** (2004-era Web 2.0 Gloss — sky-blue Aero glass card, glossy greens, warm sun yellows, bright and optimistic).
+
+### Icons (optional per-theme)
+
+The `Theme` contract includes an optional `icons` map — a per-widget string of glyphs prepended to each widget's `h1` title. Themes that provide icons should also append a Nerd Font family to the end of their `layout.fontStack` (as a tail fallback below the primary UI font); the browser's per-character font fallback keeps Latin text in the UI font and pulls only Private Use Area codepoints from the Nerd Font. Themes that ship an empty `icons: {}` render their h1s as plain text — the pre-existing behavior. `catppuccin-macchiato.ts` is the current example and assumes a Nerd Font is already installed (on the authoring machine, `Hack Nerd Font`; `brew install --cask font-symbols-only-nerd-font` is the canonical icons-only alternative).
+
+## Troubleshooting (widgets missing or errors)
+
+1. **Run the build** from this directory: `npm run build`. Übersicht only reads the root `*.jsx` files; if you edit `src/*.tsx` and skip the build, widgets can be stale or broken.
+2. **Remove stray theme files at the repo root** if you still have them: `widget_theme.jsx` or `widget_theme.js`. The build script deletes them on purpose. If they exist, Übersicht may list them as separate widgets and show parse errors that look like “nothing works.”
+3. **Widget folder in Übersicht** must be `~/Library/Application Support/Übersicht/widgets` (or your equivalent — check **Übersicht → Preferences / Settings**). In this setup that path is a symlink to the real repo location at `~/Developer/mac-customization`, so both paths refer to the same files.
+4. **Refresh**: **Übersicht → Refresh All Widgets** (or restart the app).
+5. **Hidden widgets**: from Script Editor or shortcuts, a widget’s `hidden` flag can be true — see [Übersicht README — Scripting](https://github.com/felixhageloh/uebersicht/blob/master/README.md#scripting-support).
+6. **Debug**: use Übersicht’s widget/debug or console (varies by version) if a widget shows a red error line; fix the reported file/line, then rebuild.
+7. **Large file / Babel error** — if the whole screen fills with a dark block of tiny text, Übersicht's Babel has choked on the widget file. Run `npm run build` to regenerate clean transpile-only output, then refresh.
+
+## Layout and design
+
+- **`src/themes/<theme>.ts`** — per-theme design tokens: `accents` (per-widget colors), `layout` (typography/spacing/blur/shadow), `status` (good/warn/bad palette), `primary` (cross-program brand accent — drives JankyBorders' active/inactive window border colors and width, plus Bartender's menu bar border stroke), `menuBarTint` (dedicated accent for Bartender's menu bar gradient edge and Warp's terminal accent; retained in the theme contract because Ice caps main-bar tint at 20% alpha in the deprecated Thaw codegen, and translucent accents like liquid-glass's white vanish there — it also happens to be the right saturated color to hand Bartender for its gradient edge and Warp for its cursor), and `icons` (optional per-widget glyphs rendered in each widget's h1 title — typically Nerd Font codepoints paired with a Nerd Font tail fallback in `layout.fontStack`).
+- **`src/themes/_types.ts`** — shared `Theme` type contract every theme file must satisfy.
+- **`src/widget_theme.ts`** — thin façade that owns widget-structural bits (`STACK` fallback positions, `FLOW_ORDER` stack order, the `buildWidgetClassName()` CSS builder, and the `layoutWidgets()` auto-flow trigger) and re-exports the swappable tokens from the active theme.
+- **`globals.d.ts`** / **`uebersicht.d.ts`** — ambient types for the widget runtime (`geolocation`, `import { run } from "uebersicht"`, etc.).
+
+**Auto-flow stack:** LLM Status, Weather, Calendar, and Now Playing are rendered as a vertical auto-flowing column on the left. Each widget's render output is wrapped in a `trackWidget` ref that registers the widget's Übersicht wrapper in a **shared `window`-global registry** (necessary because Übersicht bundles each widget independently via Browserify — module-scoped state is per-bundle, not shared); a single `runFlowLayout` function then measures each wrapper top-down and sets the next widget's inline `top`. This means you never hand-tune `top` values — adding a line of status text to Claude automatically pushes Weather down, which pushes Calendar, etc. The ordered sequence, the gap between widgets, and the anchor top live in `FLOW_ORDER` / `FLOW_GAP` / `FLOW_TOP` in `src/widget_theme.ts`. The Clock widget is centered on screen and not part of the stack.
+
+## Backend scripts
+
+| Script | Used by | Refresh |
+|--------|---------|---------|
+| `llm_status_fetch.py` | LLM status (Claude / OpenAI / Gemini) | 2 min — kept deliberately responsive for outage warning |
+| `weather_fetch.py` | Weather (Open-Meteo, env / geo) | 10 min |
+| `calendar_fetch.py` | Calendar (prefers EventKit helper when present) | 5 min |
+| `calendar_eventkit` (built from `calendar_eventkit.swift`) | Fast calendar reads for `calendar_fetch.py` | (N/A — invoked per calendar fetch) |
+| `nowplaying_fetch.py` | Now Playing (Spotify + Kaset via AppleScript; supports playback controls) | 10 s |
+| *(built-in)* Clock widget | Clock | 30 s |
+
+**NowPlaying pre-check:** `nowplaying_fetch.py` uses a `pgrep -x` process-existence check before running any `tell application "Spotify"` / `tell application "Kaset"` AppleScript. Don't replace this with `tell "System Events" to (name of processes) contains "X"` — that call was measured at 1–3s per invocation on macOS (up to 20s cold) and caused Python processes to stack when NowPlaying refreshed every 3s. `pgrep` is ~1ms and also prevents AppleScript from silently launching the target app if it isn't running.
+
+Commands in the widgets reference `"$HOME/Library/Application Support/Übersicht/widgets/..."`. That's Übersicht's widgets folder — here it's a symlink to this repo's actual location (`~/Developer/mac-customization`). Adjust paths if your widgets directory differs.
+
+## Configuration (environment)
+
+Each Python fetcher reads variables from **the process environment first**, then from an optional **env file** (same `KEY=value` lines, `#` comments allowed). Use either mechanism.
+
+| Widget | Env file paths (first match wins) |
+|--------|-----------------------------------|
+| Weather | `~/.config/weather-widget.env`, `widgets/.weather-widget.env` |
+| Calendar | `~/.config/calendar-widget.env`, `widgets/.calendar-widget.env` |
+
+(`widgets/` here means the Übersicht widgets directory — `~/Library/Application Support/Übersicht/widgets/`, which is a symlink to `~/Developer/mac-customization/`.)
+
+### Weather (`weather_fetch.py`)
+
+| Variable | Purpose |
+|----------|---------|
+| `LAT` / `LON` | Fixed coordinates (decimal degrees). Highest priority when both are set. |
+| `LOCATION_LABEL` | Optional display name when using fixed `LAT`/`LON`. |
+| `LOCATION_QUERY` | Place search (e.g. `Buffalo, NY`) via Open-Meteo geocoding. Used when lat/lon are not set. |
+
+**Priority:** `LAT`+`LON` → `LOCATION_QUERY` → Übersicht **geolocation** (Mac Location Services) when the widget requests it → built-in default coordinates for US `19444` if nothing else applies.
+
+Run `python3 weather_fetch.py --source` to print whether the current run used `env` vs `geo`.
+
+### Calendar (`calendar_fetch.py`)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CALENDAR_EVENING_HOUR` | `20` | Before this hour (0–23), the widget focuses **today**; from this hour on, it focuses **tomorrow**. |
+| `CALENDAR_FILTER` | *(empty)* | If set, only events whose **calendar name** contains this substring (case-insensitive) are shown. Empty = all calendars. |
+| `CALENDAR_MAX_EVENTS` | `20` | Max events after filtering and deduplication (clamped 1–50). |
+
+### LLM status (`llm_status_fetch.py`)
+
+No configuration needed. Fetches three public status feeds in parallel:
+
+- [Claude](https://status.claude.com) — statuspage.io `summary.json`
+- [OpenAI](https://status.openai.com) — statuspage.io `summary.json`
+- [Gemini](https://status.cloud.google.com) — Google Cloud `incidents.json`, filtered to ongoing incidents whose `affected_products` include "Gemini". Operational otherwise.
+
+## Requirements
+
+- Übersicht
+- Node.js (for `npm run build` / `typecheck`)
+- Python 3 for the `*_fetch.py` scripts
+- Calendar: macOS Calendar access for Übersicht when using EventKit; build `calendar_eventkit` with Swift if you use that path
