@@ -3,7 +3,7 @@
 // named exports). Type-check is the only thing stopping a new theme from
 // silently dropping a field — so keep these types tight.
 
-export type WidgetAccent = "llm" | "weather" | "calendar" | "nowplaying";
+export type WidgetAccent = "status" | "weather" | "calendar" | "nowplaying";
 
 export type AccentSpec = {
   border: string;
@@ -27,6 +27,11 @@ export type Layout = {
   fontStack: string;
   lineHeight: string;
   blur: string;
+  // Optional `saturate()` factor appended to backdrop-filter alongside
+  // `blur(...)`. Boosts wallpaper saturation through the glass — the Aero
+  // "deepened color through frost" look. 1.0 (or unset) = no change; values
+  // >1 deepen colors; the design mock landed on 1.45 for frutiger-aero.
+  backdropSaturate?: number;
   h1Size: string;
   h1LineHeight: string;
   h1MarginBottom: string;

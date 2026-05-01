@@ -71,7 +71,7 @@ export function debounceRaf(fn: () => void): () => void {
 /**
  * Vertical auto-flow layout for Übersicht widgets. Widgets are independent
  * absolutely-positioned siblings in the same WebView document, so CSS alone
- * can't express "below llm" (no sibling combinator for positioning).
+ * can't express "below status" (no sibling combinator for positioning).
  * Prior approach used CSS custom properties + `calc()` + ResizeObserver
  * cascades, but ResizeObserver only fires on SIZE changes, not position,
  * so downstream widgets' published bottoms went stale the moment an

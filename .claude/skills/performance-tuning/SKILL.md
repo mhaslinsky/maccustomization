@@ -13,7 +13,7 @@ Defined in `src/<Widget>.tsx` as `refreshFrequency` (ms).
 
 | Widget | Value | Rationale |
 |---|---|---|
-| LLMStatus | `120000` (2 min) | **Stays at 2 min** — user wants early warning on Claude / OpenAI / Gemini outages. Do not bump during perf sweeps. If CPU from the 3 sequential HTTP calls in `llm_status_fetch.py` becomes a problem, parallelize them with `concurrent.futures.ThreadPoolExecutor` instead. |
+| Status | `120000` (2 min) | **Stays at 2 min** — user wants early warning on Claude / OpenAI / Gemini / GitHub / Jira outages. Do not bump during perf sweeps. If CPU from the 5 sequential HTTP calls in `status_fetch.py` becomes a problem, parallelize them with `concurrent.futures.ThreadPoolExecutor` instead. |
 | Calendar | `300000` (5 min) | Events rarely change within 5 min; `calendar_eventkit` is already fast (~9ms native). |
 | Weather | `600000` (10 min) | Weather data lags weather; 10 min is fine. |
 | NowPlaying | `10000` (10 s) | Was 3000ms, which stacked Python processes when combined with the slow `tell "System Events"` check (since replaced with `pgrep`). 10s is responsive enough for passive display; play/pause buttons dispatch directly and don't wait for the tick. |

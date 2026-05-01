@@ -73,7 +73,7 @@ export const menuBarTint: string = "rgba(125, 211, 252, 1)";
 export const icons: Icons = {};
 
 export const accents: Record<WidgetAccent, AccentSpec> = {
-  llm: {
+  status: {
     // Soft frost cyan — desaturated vs the default's neon cyan.
     border: "rgba(186, 230, 253, 0.55)",
     text: "#f5fbff",

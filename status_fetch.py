@@ -1,24 +1,28 @@
 #!/usr/bin/env python3
-"""Fetch status for multiple LLM providers (Claude, OpenAI, Gemini).
+"""Fetch status for the developer-tool feeds the Status widget aggregates.
 
 - Claude: https://status.claude.com (statuspage.io summary.json)
 - OpenAI: https://status.openai.com (statuspage.io summary.json)
 - Gemini: https://status.cloud.google.com/incidents.json — filtered to
   ongoing incidents whose affected_products include "Gemini".
+- GitHub: https://www.githubstatus.com (statuspage.io summary.json)
+- Jira:   https://jira-software.status.atlassian.com (statuspage.io summary.json)
 
-Output shape (consumed by src/LLMStatus.tsx):
+Output shape (consumed by src/Status.tsx):
 {
   "updatedAt": "...",
   "providers": [
     { "key": "claude",  "label": "Claude",  "indicator": "none|minor|major|...", "description": "..." },
-    { "key": "openai",  "label": "OpenAI",  "indicator": "...",                  "description": "..." },
-    { "key": "gemini",  "label": "Gemini",  "indicator": "...",                  "description": "..." }
+    { "key": "openai",  ... },
+    { "key": "gemini",  ... },
+    { "key": "github",  ... },
+    { "key": "jira",    ... }
   ]
 }
 
 Indicators are normalized to the statuspage.io vocabulary
 ("none" / "minor" / "major" / "critical") so the widget's pill-class
-mapping works uniformly across all three.
+mapping works uniformly across all providers.
 """
 from __future__ import annotations
 import json
@@ -30,6 +34,15 @@ from widget_helpers import fetch_json, utc_timestamp, safe_main
 CLAUDE_SUMMARY = 'https://status.claude.com/api/v2/summary.json'
 OPENAI_SUMMARY = 'https://status.openai.com/api/v2/summary.json'
 GOOGLE_INCIDENTS = 'https://status.cloud.google.com/incidents.json'
+GITHUB_SUMMARY = 'https://www.githubstatus.com/api/v2/summary.json'
+JIRA_SUMMARY = 'https://jira-software.status.atlassian.com/api/v2/summary.json'
+
+# Public dashboards for click-through when a provider reports an issue.
+CLAUDE_DASHBOARD = 'https://status.claude.com'
+OPENAI_DASHBOARD = 'https://status.openai.com'
+GEMINI_DASHBOARD = 'https://status.cloud.google.com'
+GITHUB_DASHBOARD = 'https://www.githubstatus.com'
+JIRA_DASHBOARD = 'https://jira-software.status.atlassian.com'
 
 
 def statuspage_summary(url: str, fallback_label: str) -> dict[str, Any]:
@@ -113,15 +126,28 @@ def main() -> None:
     providers = [
         {
             'key': 'claude',
+            'url': CLAUDE_DASHBOARD,
             **safe_provider(statuspage_summary, 'Claude', CLAUDE_SUMMARY, 'Claude'),
         },
         {
             'key': 'openai',
+            'url': OPENAI_DASHBOARD,
             **safe_provider(statuspage_summary, 'OpenAI', OPENAI_SUMMARY, 'OpenAI'),
         },
         {
             'key': 'gemini',
+            'url': GEMINI_DASHBOARD,
             **safe_provider(gemini_status, 'Gemini'),
+        },
+        {
+            'key': 'github',
+            'url': GITHUB_DASHBOARD,
+            **safe_provider(statuspage_summary, 'GitHub', GITHUB_SUMMARY, 'GitHub'),
+        },
+        {
+            'key': 'jira',
+            'url': JIRA_DASHBOARD,
+            **safe_provider(statuspage_summary, 'Jira', JIRA_SUMMARY, 'Jira'),
         },
     ]
     print(json.dumps({

@@ -22,7 +22,7 @@ export type { AccentSpec, Icons, WidgetAccent };
 // static className self-contained for loading frames, then flows the stack
 // dynamically once heights are known.
 export const STACK = {
-  llm: { top: 20, zIndex: 99999 },
+  status: { top: 20, zIndex: 99999 },
   weather: { top: 260, zIndex: 99998 },
   calendar: { top: 540, zIndex: 99997 },
   nowplaying: { top: 940, zIndex: 99996 },
@@ -31,9 +31,9 @@ export const STACK = {
 // Vertical flow configuration — order, gap between widgets, and the absolute
 // top of the first (anchor) widget. Change these in one place and every
 // widget re-layouts on the next resize tick.
-const FLOW_ORDER = ["llm", "weather", "calendar", "nowplaying"] as const;
+const FLOW_ORDER = ["status", "weather", "calendar", "nowplaying"] as const;
 const FLOW_GAP = 16;
-const FLOW_TOP = STACK.llm.top;
+const FLOW_TOP = STACK.status.top;
 
 /**
  * Re-compute positions for every registered widget. Call from each widget's
@@ -92,8 +92,8 @@ export function buildWidgetClassName({
   color: ${a.text};
   font-family: ${L.fontStack};
   line-height: ${L.lineHeight};
-  -webkit-backdrop-filter: blur(${L.blur});
-  backdrop-filter: blur(${L.blur});
+  -webkit-backdrop-filter: blur(${L.blur})${L.backdropSaturate ? ` saturate(${L.backdropSaturate})` : ""};
+  backdrop-filter: blur(${L.blur})${L.backdropSaturate ? ` saturate(${L.backdropSaturate})` : ""};
   z-index: ${zIndex};${L.textShadow ? `\n  text-shadow: ${L.textShadow};` : ""}
   animation: widget-backdrop-keepalive 2s linear infinite;
 

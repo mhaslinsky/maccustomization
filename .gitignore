@@ -2,7 +2,7 @@
 src/widget_theme.js
 src/widget_helpers.js
 src/themes/*.js
-LLMStatus.jsx
+Status.jsx
 Weather.jsx
 Calendar.jsx
 NowPlaying.jsx

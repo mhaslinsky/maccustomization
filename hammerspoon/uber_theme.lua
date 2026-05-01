@@ -4,39 +4,39 @@
 
 return {
   accents = {
-    llm = {
+    status = {
       border = { red = 0.2196, green = 0.6706, blue = 0.8941, alpha = 0.7 },
-      text = { red = 0.9412, green = 0.9804, blue = 1, alpha = 1 },
+      text = { red = 1, green = 1, blue = 1, alpha = 1 },
       h1 = { red = 0.4118, green = 0.8118, blue = 1, alpha = 1 },
-      h2Muted = { red = 0.9412, green = 0.9804, blue = 1, alpha = 0.78 },
-      smallMuted = { red = 0.9412, green = 0.9804, blue = 1, alpha = 0.82 },
+      h2Muted = { red = 0.9412, green = 0.9804, blue = 1, alpha = 0.88 },
+      smallMuted = { red = 0.9412, green = 0.9804, blue = 1, alpha = 0.92 },
     },
     weather = {
       border = { red = 0.9843, green = 0.7255, blue = 0.0196, alpha = 0.6 },
       text = { red = 1, green = 0.9804, blue = 0.9412, alpha = 1 },
-      h1 = { red = 0.9843, green = 0.7255, blue = 0.0196, alpha = 1 },
-      h2Muted = { red = 1, green = 0.9804, blue = 0.9412, alpha = 0.8 },
-      smallMuted = { red = 1, green = 0.9804, blue = 0.9412, alpha = 0.82 },
+      h1 = { red = 0.9882, green = 0.8275, blue = 0.302, alpha = 1 },
+      h2Muted = { red = 1, green = 0.9804, blue = 0.9412, alpha = 0.88 },
+      smallMuted = { red = 1, green = 0.9804, blue = 0.9412, alpha = 0.92 },
     },
     calendar = {
       border = { red = 0.4431, green = 0.6706, blue = 0.1373, alpha = 0.6 },
       text = { red = 0.949, green = 0.9843, blue = 0.9098, alpha = 1 },
-      h1 = { red = 0.6588, green = 0.8941, blue = 0.6275, alpha = 1 },
-      h2Muted = { red = 0.949, green = 0.9843, blue = 0.9098, alpha = 0.78 },
-      smallMuted = { red = 0.949, green = 0.9843, blue = 0.9098, alpha = 0.82 },
+      h1 = { red = 0.5255, green = 0.9373, blue = 0.6745, alpha = 1 },
+      h2Muted = { red = 0.949, green = 0.9843, blue = 0.9098, alpha = 0.88 },
+      smallMuted = { red = 0.949, green = 0.9843, blue = 0.9098, alpha = 0.92 },
     },
     nowplaying = {
       border = { red = 0.498, green = 0.6157, blue = 0.8549, alpha = 0.6 },
       text = { red = 0.9569, green = 0.9647, blue = 1, alpha = 1 },
-      h1 = { red = 0.6588, green = 0.7412, blue = 0.9412, alpha = 1 },
-      h2Muted = { red = 0.9569, green = 0.9647, blue = 1, alpha = 0.78 },
-      smallMuted = { red = 0.9569, green = 0.9647, blue = 1, alpha = 0.82 },
+      h1 = { red = 0.7216, green = 0.7725, blue = 0.9608, alpha = 1 },
+      h2Muted = { red = 0.9569, green = 0.9647, blue = 1, alpha = 0.88 },
+      smallMuted = { red = 0.9569, green = 0.9647, blue = 1, alpha = 0.92 },
     },
   },
 
   status = {
-    good = { red = 0.6588, green = 0.8941, blue = 0.6275, alpha = 1 },
-    warn = { red = 0.9843, green = 0.7255, blue = 0.0196, alpha = 1 },
+    good = { red = 0.5255, green = 0.9373, blue = 0.6745, alpha = 1 },
+    warn = { red = 0.9882, green = 0.8275, blue = 0.302, alpha = 1 },
     bad = { red = 0.9725, green = 0.4431, blue = 0.4431, alpha = 1 },
   },
 

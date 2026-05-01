@@ -59,7 +59,7 @@ export const menuBarTint: string = "rgba(125, 211, 252, 1)";
 export const icons: Icons = {};
 
 export const accents: Record<WidgetAccent, AccentSpec> = {
-  llm: {
+  status: {
     border: "rgba(186, 230, 253, 0.55)",
     text: "#f5fbff",
     h1: "#bae6fd",
