@@ -1,6 +1,6 @@
 ---
 name: backend-fetchers
-description: Author or debug Python backend fetchers for widgets. Use when editing llm_status_fetch.py / weather_fetch.py / calendar_fetch.py / nowplaying_fetch.py, adding a new *_fetch.py script, touching widget_helpers.py, adding env-var configuration, dealing with the nowplaying AppleScript / pgrep gotcha, or compiling / modifying calendar_eventkit.swift. SKIP for the TSX widget layer, theme tokens, or the JS/TS codegens under scripts/.
+description: Author or debug Python backend fetchers for widgets. Use when editing status_fetch.py / weather_fetch.py / calendar_fetch.py / nowplaying_fetch.py, adding a new *_fetch.py script, touching widget_helpers.py, adding env-var configuration, dealing with the nowplaying AppleScript / pgrep gotcha, or compiling / modifying calendar_eventkit.swift. SKIP for the TSX widget layer, theme tokens, or the JS/TS codegens under scripts/.
 ---
 
 # Backend fetchers
@@ -9,7 +9,7 @@ Python scripts at repo root produce JSON on stdout that Übersicht pipes to the 
 
 ## Existing scripts
 
-- **`llm_status_fetch.py`** — aggregated LLM provider status. Claude and OpenAI via statuspage.io `/api/v2/summary.json`; Gemini via filtered Google Cloud `incidents.json` (ongoing incidents whose `affected_products` include "Gemini", severity mapped from `status_impact`). Each provider wrapped in `safe_provider` so a single upstream failure can't take out the other two. No config required.
+- **`status_fetch.py`** — aggregated dev-tool status. Claude / OpenAI / GitHub / Jira via statuspage.io `/api/v2/summary.json`; Gemini via filtered Google Cloud `incidents.json` (ongoing incidents whose `affected_products` include "Gemini", severity mapped from `status_impact`). Each provider wrapped in `safe_provider` so a single upstream failure can't take out the others. Each provider block also emits a `url` (the public dashboard) so the widget can render the description as a click-through link when the provider isn't operational. No config required.
 - **`weather_fetch.py`** — Open-Meteo weather. Supports `--source` (env|geo detection) and `--geo LAT LON [LABEL]` (called by widget with device coords; reverse-geocodes via Nominatim if no label given). Location priority: env `LAT`/`LON` → `LOCATION_QUERY` → fallback default. Fetch is server-side to avoid browser CORS 429s.
 - **`calendar_fetch.py`** — macOS calendar events; prefers compiled Swift binary `calendar_eventkit` over slow AppleScript fallback.
 - **`calendar_eventkit.swift`** → compiled to `calendar_eventkit` binary for fast EventKit reads.

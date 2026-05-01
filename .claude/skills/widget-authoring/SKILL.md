@@ -1,6 +1,6 @@
 ---
 name: widget-authoring
-description: Author or modify Übersicht widgets in this repo. Use when adding a new widget TSX file, editing an existing widget under src/*.tsx (LLMStatus, Weather, Calendar, NowPlaying, Clock), changing the widget flow stack order, wiring up the auto-layout (trackWidget / layoutWidgets / runFlowLayout), adding shared widget helpers, or touching src/widget_theme.ts / src/widget_helpers.tsx. SKIP for Python backends (see backend-fetchers), theme design tokens (see theme-authoring), or the codegens under scripts/.
+description: Author or modify Übersicht widgets in this repo. Use when adding a new widget TSX file, editing an existing widget under src/*.tsx (Status, Weather, Calendar, NowPlaying, Clock), changing the widget flow stack order, wiring up the auto-layout (trackWidget / layoutWidgets / runFlowLayout), adding shared widget helpers, or touching src/widget_theme.ts / src/widget_helpers.tsx. SKIP for Python backends (see backend-fetchers), theme design tokens (see theme-authoring), or the codegens under scripts/.
 ---
 
 # Widget authoring
@@ -34,7 +34,7 @@ A thin re-export layer: owns `STACK` (per-widget initial fallback `top`/`zIndex`
 
 ## Auto-flow layout mechanics
 
-LLM Status, Weather, Calendar, and Now Playing render as a vertical stack on the left side of the screen. `STACK.*.top` values are **initial fallbacks** used before JS measures heights. The authoritative positions come from `runFlowLayout`, which walks `FLOW_ORDER = ["llm", "weather", "calendar", "nowplaying"]` top-down, reads each wrapper's actual `getBoundingClientRect().height`, and sets an inline `top` on each subsequent widget using a running `y` cursor + `FLOW_GAP` (16px).
+Status, Weather, Calendar, and Now Playing render as a vertical stack on the left side of the screen. `STACK.*.top` values are **initial fallbacks** used before JS measures heights. The authoritative positions come from `runFlowLayout`, which walks `FLOW_ORDER = ["status", "weather", "calendar", "nowplaying"]` top-down, reads each wrapper's actual `getBoundingClientRect().height`, and sets an inline `top` on each subsequent widget using a running `y` cursor + `FLOW_GAP` (16px).
 
 **Why JS-based layout over CSS custom properties + `calc()`:** CSS vars only observe *size* changes via ResizeObserver — *position* changes (when an upstream widget's `calc()` re-resolves) don't fire any observer, and downstream widgets go stale. The JS approach re-measures everything on every trigger, so load-order and resize-order don't matter.
 
@@ -50,6 +50,14 @@ Clock bypasses `buildWidgetClassName` entirely and writes its `className` as raw
 - **Now Playing** has playback buttons whose `onClick` handlers call `run('nowplaying_fetch.py --action playpause|next|previous --source spotify|youtube_music')`.
 
 Übersicht wraps geolocation results as `{position: {coords: {latitude, longitude}}}` (one level deeper than W3C Geolocation API — see `globals.d.ts`).
+
+## Per-widget style overrides
+
+`buildWidgetClassName` accepts `append` (raw CSS appended after the standard rules). Use it for widget-specific overrides — Status uses it to drop body `font-size` to 11px (5-row provider list at 220px width wraps long descriptions like "Partially Degraded Service" at the default 12px) and to style `<a>` so links inherit the `.good`/`.warn`/`.bad` pill color with underline-on-hover. Source order beats specificity: anything in `append` overrides the equivalent rule from the shared template. Reach for `append` before forking `buildWidgetClassName` itself.
+
+## Outbound links
+
+Widget render output supports plain `<a href>` — Übersicht's WebView opens links in the user's default browser. Status uses this on its provider rows: when an indicator is non-operational, the description is wrapped in `<a href={p.url}>` (URL emitted by `status_fetch.py`) so the user can click through to the upstream dashboard. Style links with `color: inherit` to preserve pill colors and `text-decoration: none` (with `:hover` underline) so the row reads as text until hovered.
 
 ## Adding a new widget
 

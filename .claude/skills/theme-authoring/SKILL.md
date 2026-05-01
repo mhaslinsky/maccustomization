@@ -17,7 +17,7 @@ Every "look" is one file in `src/themes/`. The currently-selected theme is whate
 
 ## Theme field cheat sheet
 
-Every theme exports `layout`, `status`, `primary`, `menuBarTint`, `icons`, and `accents` (keyed by `WidgetAccent` — currently `llm` / `weather` / `calendar` / `nowplaying`).
+Every theme exports `layout`, `status`, `primary`, `menuBarTint`, `icons`, and `accents` (keyed by `WidgetAccent` — currently `status` / `weather` / `calendar` / `nowplaying`).
 
 - **`primary`** — canonical "brand" accent consumed by cross-program tools. Fields: `active`, `inactive`, `width` (px — window-border thickness, separate from `layout.borderWidth` which is widget-card thickness). JankyBorders is the active consumer; Bartender reads `primary.active` for the menu bar border color.
 - **`menuBarTint`** — dedicated saturated-full-alpha color. Thaw (when active) forces 0.2 alpha on the main bar tint; translucent primaries vanish there, so `menuBarTint` is the per-theme escape hatch. Still required even though Thaw is deprecated because Warp and Bartender also consume it.

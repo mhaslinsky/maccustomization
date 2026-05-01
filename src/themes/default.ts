@@ -44,7 +44,7 @@ export const primary: Primary = {
 
 // Menu bar tint consumed by the Thaw codegen. Ice forces 0.2 alpha on the
 // main bar tint, so this should be a saturated full-alpha color — the RGB
-// is what shows through. Bright cyan matches the llm widget accent and
+// is what shows through. Bright cyan matches the status widget accent and
 // reads clearly as "the default theme's color" on the menu bar.
 export const menuBarTint: string = "rgba(34, 211, 238, 1)";
 
@@ -52,7 +52,7 @@ export const menuBarTint: string = "rgba(34, 211, 238, 1)";
 export const icons: Icons = {};
 
 export const accents: Record<WidgetAccent, AccentSpec> = {
-  llm: {
+  status: {
     border: "rgba(34, 211, 238, 0.7)",
     text: "#e6f7ff",
     h1: "#67e8f9",

@@ -3,13 +3,17 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "npm run build:widgets && npm run build:hammerspoon && npm run build:borders && npm run build:bartender && npm run build:warp",
+    "build": "npm run build:widgets && npm run build:hammerspoon && npm run build:borders && npm run build:bartender && npm run build:warp && npm run build:slack-css && npm run build:obsidian",
     "build:widgets": "node scripts/build-widgets.mjs",
     "build:hammerspoon": "node scripts/build-hammerspoon-theme.mjs",
     "build:borders": "node scripts/build-borders-config.mjs",
     "build:bartender": "node scripts/build-bartender-theme.mjs",
     "build:thaw": "node scripts/build-thaw-theme.mjs",
     "build:warp": "node scripts/build-warp-theme.mjs",
+    "build:slack": "node scripts/build-slack-theme.mjs",
+    "build:slack-css": "node scripts/build-slack-css.mjs",
+    "build:obsidian": "node scripts/build-obsidian-theme.mjs",
+    "status:slack-app": "node scripts/patch-slack-app.mjs --status",
     "theme": "node scripts/switch-theme.mjs",
     "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"

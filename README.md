@@ -6,7 +6,7 @@ A single-source-of-truth theming stack for a Mac desktop. One TypeScript theme f
 
 **Übersicht widgets** (`src/*.tsx` → root `*.jsx`) — Five widgets for [Übersicht](https://github.com/felixhageloh/uebersicht), rendered as React-style JSX inside its WebView:
 
-- **LLM Status** — Claude / OpenAI / Gemini public status feeds, aggregated into one pill list
+- **Status** — Claude / OpenAI / Gemini / GitHub / Jira public status feeds, aggregated into one pill list
 - **Weather** — Open-Meteo, fixed coords or Mac geolocation
 - **Calendar** — macOS Calendar via a Swift EventKit helper
 - **Now Playing** — Spotify + [Kaset](https://kaset.app/) via AppleScript, with playback controls
@@ -19,7 +19,10 @@ The first four auto-flow as a vertical column on the left — heights are measur
 - **[Hammerspoon](https://www.hammerspoon.org/)** (`hammerspoon/`) — emits `uber_theme.lua` consumed by `init.lua`
 - **[JankyBorders](https://github.com/FelixKratz/JankyBorders)** (`borders/bordersrc`) — focused/unfocused window border colors and width
 - **[Bartender 6](https://www.macbartender.com/)** — overrides Bartender's `stored_style` plist to brand the menu bar background and border
-- **[Warp](https://www.warp.dev/) terminal** — writes themes to `~/.warp/themes/uber-*.yaml` (ANSI palette, accent, transparency)
+- **[Warp](https://www.warp.dev/) terminal** — writes `~/.warp/themes/uber-<theme>.yaml` (one file per theme; ANSI palette, accent, selection, cursor) and updates Warp's `defaults` so its active selection points at the new file
+- **[Slack](https://slack.com/)** — two paths, layered:
+  - **Sidebar legacy theme string** (`build:slack`, standalone) — copies the 10-color theme string to your clipboard for paste into Preferences → Themes → "Paste your legacy theme colors". Quick, official, but only paints the workspace switcher rail + active highlight; nothing else.
+  - **Full CSS injection** via app.asar patch (`sudo -E node scripts/patch-slack-app.mjs` + `npm run build:slack-css`) — patches Slack.app's renderer preload to load `~/.config/slack-uber-theme/theme.css` at startup. Theme switches just regenerate the CSS file (chained into `npm run build`); a fresh patch run is only needed once after each Slack auto-update. Unsupported by Slack, requires App Management for the terminal + Slack moved to `~/Applications/`, and breaks every Slack auto-update — see `.claude/skills/slack-theme/SKILL.md` for the full caveats and recovery via the `--restore` flag
 - **[Thaw](https://github.com/stonerl/Thaw)** (Ice fork) — deprecated 2026-04-24 in favor of Bartender; codegen kept as a manual-invoke fallback
 
 **Python backends** (`*_fetch.py`) — invoked by widgets on their own refresh cadence and write JSON to stdout. A small compiled Swift helper (`calendar_eventkit`, built from `calendar_eventkit.swift`) speeds up calendar reads.
@@ -35,7 +38,12 @@ src/themes/<name>.ts                  one file per theme
                   ├─ build:hammerspoon → hammerspoon/uber_theme.lua
                   ├─ build:borders     → borders/bordersrc
                   ├─ build:bartender   → Bartender stored_style plist
-                  ├─ build:warp        → ~/.warp/themes/uber-*.yaml
+                  ├─ build:warp        → ~/.warp/themes/uber-<theme>.yaml + Warp prefs
+                  ├─ build:slack       → 10-color legacy string → clipboard (manual paste)
+                  ├─ build:slack-css   → ~/.config/slack-uber-theme/theme.css
+                  │                       (consumed by the patched Slack preload;
+                  │                       run `sudo -E node scripts/patch-slack-app.mjs`
+                  │                       once to install the patch)
                   └─ build:thaw        → (deprecated) Ice menu bar plist
 ```
 
@@ -59,7 +67,7 @@ The widget build (`scripts/build-widgets.mjs`) uses esbuild to **transpile** (no
 
 - `src/widget_theme.js`, `src/widget_helpers.js` — compiled shared modules.
 - `src/themes/*.js` — compiled theme files (one per theme) plus the `_active.js` pointer that widgets resolve through at runtime.
-- `LLMStatus.jsx`, `Weather.jsx`, `Calendar.jsx`, `NowPlaying.jsx`, `Clock.jsx` at the repo root — small files that import from `./src/widget_theme.js`.
+- `Status.jsx`, `Weather.jsx`, `Calendar.jsx`, `NowPlaying.jsx`, `Clock.jsx` at the repo root — small files that import from `./src/widget_theme.js`.
 
 Übersicht’s own Browserify + Babelify pipeline resolves the imports at runtime and bundles everything for its WebView. Keeping the root files small is important: Übersicht’s embedded Babel can silently fail on large pre-bundled files. Every root file also gets a leading `// active-theme: <name> (<digest>)` comment that changes whenever the theme or the shared module graph changes, which busts Übersicht's bundle cache on code edits.
 
@@ -94,13 +102,13 @@ The `Theme` contract includes an optional `icons` map — a per-widget string of
 - **`src/widget_theme.ts`** — thin façade that owns widget-structural bits (`STACK` fallback positions, `FLOW_ORDER` stack order, the `buildWidgetClassName()` CSS builder, and the `layoutWidgets()` auto-flow trigger) and re-exports the swappable tokens from the active theme.
 - **`globals.d.ts`** / **`uebersicht.d.ts`** — ambient types for the widget runtime (`geolocation`, `import { run } from "uebersicht"`, etc.).
 
-**Auto-flow stack:** LLM Status, Weather, Calendar, and Now Playing are rendered as a vertical auto-flowing column on the left. Each widget's render output is wrapped in a `trackWidget` ref that registers the widget's Übersicht wrapper in a **shared `window`-global registry** (necessary because Übersicht bundles each widget independently via Browserify — module-scoped state is per-bundle, not shared); a single `runFlowLayout` function then measures each wrapper top-down and sets the next widget's inline `top`. This means you never hand-tune `top` values — adding a line of status text to Claude automatically pushes Weather down, which pushes Calendar, etc. The ordered sequence, the gap between widgets, and the anchor top live in `FLOW_ORDER` / `FLOW_GAP` / `FLOW_TOP` in `src/widget_theme.ts`. The Clock widget is centered on screen and not part of the stack.
+**Auto-flow stack:** Status, Weather, Calendar, and Now Playing are rendered as a vertical auto-flowing column on the left. Each widget's render output is wrapped in a `trackWidget` ref that registers the widget's Übersicht wrapper in a **shared `window`-global registry** (necessary because Übersicht bundles each widget independently via Browserify — module-scoped state is per-bundle, not shared); a single `runFlowLayout` function then measures each wrapper top-down and sets the next widget's inline `top`. This means you never hand-tune `top` values — adding a line of status text to Claude automatically pushes Weather down, which pushes Calendar, etc. The ordered sequence, the gap between widgets, and the anchor top live in `FLOW_ORDER` / `FLOW_GAP` / `FLOW_TOP` in `src/widget_theme.ts`. The Clock widget is centered on screen and not part of the stack.
 
 ## Backend scripts
 
 | Script | Used by | Refresh |
 |--------|---------|---------|
-| `llm_status_fetch.py` | LLM status (Claude / OpenAI / Gemini) | 2 min — kept deliberately responsive for outage warning |
+| `status_fetch.py` | Status (Claude / OpenAI / Gemini / GitHub / Jira) | 2 min — kept deliberately responsive for outage warning |
 | `weather_fetch.py` | Weather (Open-Meteo, env / geo) | 10 min |
 | `calendar_fetch.py` | Calendar (prefers EventKit helper when present) | 5 min |
 | `calendar_eventkit` (built from `calendar_eventkit.swift`) | Fast calendar reads for `calendar_fetch.py` | (N/A — invoked per calendar fetch) |
@@ -142,13 +150,17 @@ Run `python3 weather_fetch.py --source` to print whether the current run used `e
 | `CALENDAR_FILTER` | *(empty)* | If set, only events whose **calendar name** contains this substring (case-insensitive) are shown. Empty = all calendars. |
 | `CALENDAR_MAX_EVENTS` | `20` | Max events after filtering and deduplication (clamped 1–50). |
 
-### LLM status (`llm_status_fetch.py`)
+### Status (`status_fetch.py`)
 
-No configuration needed. Fetches three public status feeds in parallel:
+No configuration needed. Fetches five public status feeds in parallel:
 
 - [Claude](https://status.claude.com) — statuspage.io `summary.json`
 - [OpenAI](https://status.openai.com) — statuspage.io `summary.json`
 - [Gemini](https://status.cloud.google.com) — Google Cloud `incidents.json`, filtered to ongoing incidents whose `affected_products` include "Gemini". Operational otherwise.
+- [GitHub](https://www.githubstatus.com) — statuspage.io `summary.json`
+- [Jira](https://jira-software.status.atlassian.com) — statuspage.io `summary.json`
+
+When a provider reports a non-operational indicator, the description renders as a click-through link to that provider's public dashboard. Operational rows stay plain text.
 
 ## Requirements
 

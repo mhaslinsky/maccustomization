@@ -16,7 +16,7 @@
 import * as esbuild from "esbuild";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { execSync } from "node:child_process";
 
@@ -107,34 +107,103 @@ function cssToHex(color, bgColor) {
 // Background: Warp's OverrideOpacity makes the window translucent, so
 // the theme background is composited by Warp over whatever's behind it.
 // We want the terminal to feel like the same material as the widgets.
-// Composite cardBg onto a near-black base (not pure black — that reads
-// too flat) to get the "tinted dark glass" look the widgets have.
+//
+// We composite the translucent cardBg onto an opaque "base" to flatten
+// alpha. The base color matters a lot: a fixed near-black base (what
+// this used to be) drains hue out of tinted cardBgs (frutiger-aero's
+// sky-blue ends up reading as neutral dark gray once Warp paints it
+// at 78% opacity). Instead, derive the base from cardBg's own RGB —
+// a darker tinted version of the same hue — so the color cast carries
+// through. For neutral dark cardBgs (liquid-glass-dark) this still
+// produces a dark result; for hue-rich cardBgs (frutiger-aero) the
+// gradient stays on-brand instead of going gray.
 const bgParsed = parseColor(theme.layout.cardBg);
-const bgBase = { r: 6, g: 8, b: 28, a: 1 }; // near-black with a strong cool-blue bias
+const bgBase =
+  bgParsed.a >= 1
+    ? { r: 6, g: 8, b: 28, a: 1 } // unused for opaque themes, kept for safety
+    : {
+        r: Math.round(bgParsed.r * 0.4),
+        g: Math.round(bgParsed.g * 0.4),
+        b: Math.round(bgParsed.b * 0.4),
+        a: 1,
+      };
 const bgFlat =
   bgParsed.a >= 1
     ? toHex(bgParsed)
     : toHex(composite(bgParsed, bgBase));
 
+// Glass themes (translucent cardBg) get a vertical gradient background to
+// echo the widget look — widgets carry an inset top-edge white highlight
+// (shadow: "inset 0 1px 0 rgba(255,255,255,0.45)") and a soft drop shadow
+// at the bottom, so the eye reads them as top-lit. Mirroring that as a
+// subtle top-bright / bottom-dim gradient on the terminal pane locks
+// Warp visually into the same material as the widgets.
+//
+// Warp's YAML supports Fill::VerticalGradient as { top, bottom } hex pair
+// (crates/warp_core/src/ui/theme/mod.rs). Solid hex still works for opaque
+// themes — we keep that path so non-glass themes (catppuccin, default)
+// don't pick up a gradient they weren't designed for.
+const isGlassTheme = bgParsed.a < 1;
+// IMPORTANT readability constraint: Warp's `font_color` calls
+// `pick_best_foreground_color(local_surface, theme.background_midpoint,
+// theme.foreground)` and picks whichever extreme has more contrast
+// against the surface. With Warp at 25% opacity over arbitrary
+// wallpapers, the local surface can be bright — and if our gradient
+// midpoint is also brightish, the picker chooses it (a medium gray-blue)
+// over white, which renders as near-black text on the wallpaper. Keep
+// the midpoint genuinely dark so white always wins.
+const bgGradient = isGlassTheme
+  ? {
+      // Top is brightened from the cardBg-tinted base, but capped so the
+      // top edge doesn't drift above midtone — at 25% opacity, anything
+      // brighter starts losing contrast against pale wallpaper sections.
+      top: brighten(bgFlat, 0.18),
+      // Bottom darkened more aggressively. This is what anchors the
+      // gradient midpoint dark enough that `pick_best_foreground_color`
+      // reliably picks white.
+      bottom: darken(bgFlat, 0.35),
+    }
+  : null;
+
 // Determine if this is a "darker" or "lighter" theme based on bg luminance.
 const bgRgb = parseColor(bgFlat);
 const luminance = 0.299 * bgRgb.r + 0.587 * bgRgb.g + 0.114 * bgRgb.b;
-const details = luminance < 128 ? "darker" : "lighter";
+const detailsKind = luminance < 128 ? "darker" : "lighter";
 
-const fg = cssToHex(theme.accents.llm.text, bgFlat);
-// Accent: prefer menuBarTint (always saturated/full-alpha) over primary.active
-// which can be white or translucent in glass themes — those composite to gray
-// and look washed out as a terminal accent.
-const accent = cssToHex(theme.menuBarTint, bgFlat);
+// Note on `details: custom`: the source (warp_core/src/ui/theme/color.rs)
+// only honors `hint_text_opacity` from CustomDetails — `main_text_color`,
+// `sub_text_color`, and `disabled_text_color` use HARDCODED 90/60/40
+// opacities and ignore the custom values. So overriding with a custom
+// block buys us almost nothing while risking deserialization mismatches.
+// Stay on the bare "darker"/"lighter" string and address readability
+// through the bg color and gradient (above) instead.
+
+// For glass themes we run Warp at very low opacity (~25) so the wallpaper
+// shows through. Tinted off-whites like frutiger-aero's #f0faff get
+// crushed against busy/bright wallpapers — pure white is the only fg
+// that stays readable across arbitrary backdrops. Opaque themes keep
+// using the accent text color (no transparency, no readability concern).
+const fg = isGlassTheme
+  ? "#ffffff"
+  : cssToHex(theme.accents.status.text, bgFlat);
+// Accent: opaque themes use menuBarTint (always saturated/full-alpha; avoids
+// the gray-out that primary.active causes in glass themes where the border is
+// white). Glass themes route through accents.status.h1 instead — menuBarTint
+// is tuned for the menu bar (Bartender/Ice's 0.2-alpha cap forces a saturated
+// hex), but at Warp's 25% window opacity that same saturated tone reads
+// dirty next to the pale-aqua glass; status.h1 is the pastel aqua we already
+// use for widget headers and is the design's recommended terminal accent.
+const accentSource = isGlassTheme ? theme.accents.status.h1 : theme.menuBarTint;
+const accent = cssToHex(accentSource, bgFlat);
 const cursor = accent;
 // Selection: use the accent at reduced opacity over bg.
-const accentParsed = parseColor(theme.menuBarTint);
+const accentParsed = parseColor(accentSource);
 accentParsed.a = 0.25;
 const selection = toHex(composite(accentParsed, parseColor(bgFlat)));
 
 // ANSI palette — map semantic theme colors to terminal color slots.
 // Each accent maps to the ANSI slot closest to its hue family:
-//   llm     (cyan/blue family) → cyan
+//   status  (cyan/blue family) → cyan
 //   weather (amber/warm family) → yellow
 //   calendar (green/mint family) → green
 //   nowplaying (purple/lavender) → magenta
@@ -146,9 +215,9 @@ const normal = {
   red: cssToHex(theme.status.bad, bgFlat),
   green: cssToHex(theme.status.good, bgFlat),
   yellow: cssToHex(theme.accents.weather.h1, bgFlat),
-  blue: cssToHex(theme.accents.llm.border, bgFlat),
+  blue: cssToHex(theme.accents.status.border, bgFlat),
   magenta: cssToHex(theme.accents.nowplaying.h1, bgFlat),
-  cyan: cssToHex(theme.accents.llm.h1, bgFlat),
+  cyan: cssToHex(theme.accents.status.h1, bgFlat),
   white: fg,
 };
 
@@ -159,6 +228,17 @@ function brighten(hex, amount = 0.2) {
     r: Math.round(c.r + (255 - c.r) * amount),
     g: Math.round(c.g + (255 - c.g) * amount),
     b: Math.round(c.b + (255 - c.b) * amount),
+    a: 1,
+  });
+}
+
+// Mirror image of brighten — pull each channel toward black.
+function darken(hex, amount = 0.1) {
+  const c = parseColor(hex);
+  return toHex({
+    r: Math.round(c.r * (1 - amount)),
+    g: Math.round(c.g * (1 - amount)),
+    b: Math.round(c.b * (1 - amount)),
     a: 1,
   });
 }
@@ -178,20 +258,31 @@ const bright = {
 // Emit YAML
 // ---------------------------------------------------------------------------
 
-// Stable filename so Warp stays on this theme across theme switches.
-// The display name updates to show which theme is active, but the file
-// Warp points at never changes.
+// Per-theme filename. Warp's user prefs store the active custom theme as
+// {name, path} — keeping a stable filename and only changing the `name:`
+// inside the YAML left Warp's stored selection out of sync with the file
+// contents (Warp would keep showing the previous theme, or fall back).
+// One file per theme + a `defaults write` to update the active selection
+// keeps name and path coherent.
 const displayName = `Uber ${themeName.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}`;
-const outFile = join(warpThemesDir, `uber-theme.yaml`);
+const outFile = join(warpThemesDir, `uber-${themeName}.yaml`);
+
+// Background renders as either a flat hex string (Fill::Solid) or a YAML
+// mapping (Fill::VerticalGradient). Warp's `Fill` enum is `untagged`, so
+// serde dispatches on the YAML shape — a string deserializes to Solid, a
+// mapping with top/bottom keys deserializes to VerticalGradient.
+const backgroundYaml = bgGradient
+  ? `background:\n  top: "${bgGradient.top}"\n  bottom: "${bgGradient.bottom}"`
+  : `background: "${bgFlat}"`;
 
 const yaml = `# AUTO-GENERATED by scripts/build-warp-theme.mjs
 # Source of truth: src/themes/_active.ts  →  src/themes/${themeName}.ts
 # DO NOT EDIT — your changes will be overwritten on the next \`npm run build\`.
 
 name: ${displayName}
-details: "${details}"
+details: "${detailsKind}"
 accent: "${accent}"
-background: "${bgFlat}"
+${backgroundYaml}
 cursor: "${cursor}"
 foreground: "${fg}"
 selection: "${selection}"
@@ -229,28 +320,76 @@ try {
   // File doesn't exist yet.
 }
 
-if (existing === yaml) {
+const fileChanged = existing !== yaml;
+if (fileChanged) {
+  await writeFile(outFile, yaml, "utf8");
+  const bgDesc = bgGradient
+    ? `bg: ${bgGradient.top}→${bgGradient.bottom} (gradient)`
+    : `bg: ${bgFlat}`;
   console.log(
-    `(~/.warp/themes/uber-theme.yaml unchanged — skipping write.)`
+    `Generated ~/.warp/themes/uber-${themeName}.yaml  (${bgDesc}, fg: ${fg}, accent: ${accent})`
   );
+} else {
+  console.log(`(~/.warp/themes/uber-${themeName}.yaml unchanged.)`);
+}
+
+// ---------------------------------------------------------------------------
+// Point Warp at this theme (update active selection if it doesn't already match)
+// ---------------------------------------------------------------------------
+// Warp's active theme lives in dev.warp.Warp-Stable's `Theme` key as a JSON
+// string: {"Custom":{"name":"<displayName>","path":"<absolute path>"}}.
+// We only rewrite if the current selection differs — avoids needlessly
+// restarting Warp on every build.
+const wantedTheme = JSON.stringify({
+  Custom: { name: displayName, path: outFile },
+});
+
+let currentTheme = "";
+try {
+  currentTheme = execSync("defaults read dev.warp.Warp-Stable Theme", {
+    encoding: "utf8",
+  }).trim();
+} catch {
+  // Key doesn't exist yet — first run.
+}
+
+const selectionChanged = currentTheme !== wantedTheme;
+if (selectionChanged) {
+  execSync(
+    `defaults write dev.warp.Warp-Stable Theme -string ${JSON.stringify(wantedTheme)}`,
+    { stdio: "ignore" }
+  );
+  console.log(`Set Warp active theme → "${displayName}".`);
+}
+
+// ---------------------------------------------------------------------------
+// Clean up the legacy single-file output if it exists from older builds.
+// ---------------------------------------------------------------------------
+const legacyFile = join(warpThemesDir, "uber-theme.yaml");
+if (legacyFile !== outFile) {
+  try {
+    await readFile(legacyFile, "utf8");
+    await unlink(legacyFile);
+    console.log("Removed legacy ~/.warp/themes/uber-theme.yaml.");
+  } catch {
+    // Doesn't exist — nothing to do.
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Restart Warp if anything changed (file contents or active selection).
+// Warp doesn't watch its theme files OR its prefs file, so a relaunch is
+// the only way to apply updates.
+// ---------------------------------------------------------------------------
+if (!fileChanged && !selectionChanged) {
   process.exit(0);
 }
 
-await writeFile(outFile, yaml, "utf8");
-
-console.log(
-  `Generated ~/.warp/themes/uber-theme.yaml  (bg: ${bgFlat}, fg: ${fg}, accent: ${accent})`
-);
-
-// Restart Warp so it picks up the new theme colors. Warp doesn't watch
-// its theme files for changes, so a restart is the only way to apply
-// updates. Same kill/relaunch pattern as the Thaw codegen.
 try {
   execSync("pgrep -x Warp", { stdio: "ignore" });
   execSync('osascript -e \'tell application "Warp" to quit\'', {
     stdio: "ignore",
   });
-  // Give Warp a moment to fully quit before relaunching.
   execSync("sleep 0.5", { stdio: "ignore" });
   execSync("open -a Warp", { stdio: "ignore" });
   console.log("Restarted Warp to pick up new theme.");

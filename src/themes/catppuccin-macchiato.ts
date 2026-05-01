@@ -68,14 +68,14 @@ export const menuBarTint: string = "rgba(198, 160, 246, 1)";
 
 // Nerd Font glyphs prepended to each widget's h1 title. Uses FontAwesome v4
 // Private Use Area codepoints that ship in every Nerd Font patched build:
-//   \uf21e heartbeat  — LLM Status
+//   \uf21e heartbeat  — Status
 //   \uf185 sun        — Weather
 //   \uf073 calendar   — Calendar
 //   \uf001 music note — Now Playing
 // Requires Symbols Nerd Font (or any Nerd-patched font) installed; see the
 // fontStack comment above.
 export const icons: Icons = {
-  llm: "\uf21e",
+  status: "\uf21e",
   weather: "\uf185",
   calendar: "\uf073",
   nowplaying: "\uf001",
@@ -92,7 +92,7 @@ const SUBTEXT1 = "rgba(184, 192, 224, 0.82)"; // Subtext1 for h2 labels
 const SUBTEXT0 = "rgba(165, 173, 203, 0.78)"; // Subtext0 for small meta
 
 export const accents: Record<WidgetAccent, AccentSpec> = {
-  llm: {
+  status: {
     border: "rgba(145, 215, 227, 0.7)", // Sky
     text: TEXT,
     h1: "#91d7e3", // Sky
