@@ -2,4 +2,4 @@
 // Every other consumer (widget_theme.ts, the hammerspoon codegen, and the
 // borders codegen) reads the look through this file, so flipping one line
 // here changes the look everywhere on the next `npm run build`.
-export * from "./frutiger-aero.js";
+export * from "./obsidian-glass.js";

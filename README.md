@@ -20,9 +20,9 @@ The first four auto-flow as a vertical column on the left — heights are measur
 - **[JankyBorders](https://github.com/FelixKratz/JankyBorders)** (`borders/bordersrc`) — focused/unfocused window border colors and width
 - **[Bartender 6](https://www.macbartender.com/)** — overrides Bartender's `stored_style` plist to brand the menu bar background and border
 - **[Warp](https://www.warp.dev/) terminal** — writes `~/.warp/themes/uber-<theme>.yaml` (one file per theme; ANSI palette, accent, selection, cursor) and updates Warp's `defaults` so its active selection points at the new file
-- **[Slack](https://slack.com/)** — two paths, layered:
-  - **Sidebar legacy theme string** (`build:slack`, standalone) — copies the 10-color theme string to your clipboard for paste into Preferences → Themes → "Paste your legacy theme colors". Quick, official, but only paints the workspace switcher rail + active highlight; nothing else.
-  - **Full CSS injection** via app.asar patch (`sudo -E node scripts/patch-slack-app.mjs` + `npm run build:slack-css`) — patches Slack.app's renderer preload to load `~/.config/slack-uber-theme/theme.css` at startup. Theme switches just regenerate the CSS file (chained into `npm run build`); a fresh patch run is only needed once after each Slack auto-update. Unsupported by Slack, requires App Management for the terminal + Slack moved to `~/Applications/`, and breaks every Slack auto-update — see `.claude/skills/slack-theme/SKILL.md` for the full caveats and recovery via the `--restore` flag
+- **[Slack](https://slack.com/)** — two paths:
+  - **Sidebar legacy theme string** (`build:slack`, standalone) — copies the 10-color theme string to your clipboard for paste into Preferences → Themes → "Paste your legacy theme colors". Quick, official, but only paints the workspace switcher rail + active highlight; nothing else. This is the only Slack path still in use.
+  - **Full CSS injection** via app.asar patch (`build:slack-css` + `scripts/patch-slack-app.mjs`) — **deprecated 2026-05-12**: the asar-patch approach never worked reliably (App Management TCC friction, Slack auto-updates wiping the patch). Scripts kept as manual-invoke only, no longer chained into `npm run build` — see `.claude/skills/slack-theme/SKILL.md`
 - **[Thaw](https://github.com/stonerl/Thaw)** (Ice fork) — deprecated 2026-04-24 in favor of Bartender; codegen kept as a manual-invoke fallback
 
 **Python backends** (`*_fetch.py`) — invoked by widgets on their own refresh cadence and write JSON to stdout. A small compiled Swift helper (`calendar_eventkit`, built from `calendar_eventkit.swift`) speeds up calendar reads.
@@ -39,11 +39,9 @@ src/themes/<name>.ts                  one file per theme
                   ├─ build:borders     → borders/bordersrc
                   ├─ build:bartender   → Bartender stored_style plist
                   ├─ build:warp        → ~/.warp/themes/uber-<theme>.yaml + Warp prefs
-                  ├─ build:slack       → 10-color legacy string → clipboard (manual paste)
-                  ├─ build:slack-css   → ~/.config/slack-uber-theme/theme.css
-                  │                       (consumed by the patched Slack preload;
-                  │                       run `sudo -E node scripts/patch-slack-app.mjs`
-                  │                       once to install the patch)
+                  ├─ build:obsidian    → <vault>/.obsidian/snippets/uber-theme.css
+                  ├─ build:slack       → 10-color legacy string → clipboard (standalone, manual paste)
+                  ├─ build:slack-css   → (deprecated) ~/.config/slack-uber-theme/theme.css
                   └─ build:thaw        → (deprecated) Ice menu bar plist
 ```
 

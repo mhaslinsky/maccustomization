@@ -1,9 +1,11 @@
 ---
 name: slack-theme
-description: Edit any of the Slack theming pipeline — the 10-color legacy sidebar string codegen (scripts/build-slack-theme.mjs), the best-effort CSS injection codegen for the most-visible Slack panes (scripts/build-slack-css.mjs; not full UI coverage — see the skill body), or the asar patcher (scripts/patch-slack-app.mjs). Use when touching any of those scripts, changing how theme tokens map to Slack's 10 sidebar slots or to the injected CSS variables / direct selectors, debugging silent rejection by Slack's import dialog (lowercase hex / wrong slot count / new vs legacy field), debugging the asar patch (sudo / TCC App Management / osascript-vs-direct-sudo / sudo -E node invocation / Slack auto-update wiping the patch), explaining why Slack is sync-only on legacy paste (server-side per-workspace, no on-disk theme file for the legacy string), or deciding whether a given Slack codegen should be in the default `npm run build` chain. SKIP for widgets, window borders, menu bar, terminal, or Hammerspoon work.
+description: Reference for the Slack theming pipeline. The CSS-injection path (scripts/build-slack-css.mjs + scripts/patch-slack-app.mjs) was DEPRECATED 2026-05-12 — never reliable, no longer chained into `npm run build`, kept as manual-invoke only. The 10-color legacy sidebar string codegen (scripts/build-slack-theme.mjs, `build:slack`) still works as a standalone manual paste flow. Use when touching any of those scripts, changing how theme tokens map to Slack's 10 sidebar slots or to the injected CSS variables / direct selectors, debugging silent rejection by Slack's import dialog (lowercase hex / wrong slot count / new vs legacy field), debugging the asar patch (sudo / TCC App Management / osascript-vs-direct-sudo / sudo -E node invocation / Slack auto-update wiping the patch), explaining why Slack is sync-only on legacy paste (server-side per-workspace, no on-disk theme file for the legacy string), or deciding whether to revive the CSS-injection path. SKIP for widgets, window borders, menu bar, terminal, or Hammerspoon work.
 ---
 
-# Slack sidebar theme integration
+# Slack theme integration
+
+> **DEPRECATED (2026-05-12) — CSS-injection path only.** The asar-patch / `build:slack-css` mechanism described under "Full CSS injection" below was never reliable (App Management TCC friction, Slack auto-updates silently wiping the patch, ad-hoc re-signing fragility). It has been removed from the default `npm run build` chain — `build:slack-css` and `scripts/patch-slack-app.mjs` are kept as manual-invoke only, in case it's ever revived. The **legacy sidebar string** path (`build:slack`) is unaffected: it still works, it was always standalone, and it's the only Slack theming still in active use. Sections below are kept as a reference for both — heed this banner before assuming the CSS path is wired up.
 
 The Slack sidebar accent strip is the only built-in theming knob Slack exposes. It's set per-workspace via Preferences → Themes → Custom Theme as **10 comma-separated UPPERCASE `#RRGGBB`** values (the older pre-2018 format was 8 colors; Slack added top_nav_bg + top_nav_text and now silently rejects 8-color strings).
 
@@ -46,13 +48,15 @@ If we ever want to skip the legacy link click, we'd need to reverse-engineer Sla
 
 The script's stdout explicitly calls out the legacy-link trap so the user doesn't fall into it.
 
-## Full CSS injection (asar patch)
+## Full CSS injection (asar patch) — DEPRECATED 2026-05-12
 
-Slack's legacy theme string only paints a thin slice of the UI. For deeper theming we patch the desktop app to inject custom CSS at startup.
+> Everything in this section is the deprecated path (see the banner at the top). `build:slack-css` is no longer in the default `npm run build` chain; `scripts/patch-slack-app.mjs` was always manual. Kept as a reference in case it's revived. Don't re-chain `build:slack-css` without re-validating the whole asar-patch workflow.
+
+Slack's legacy theme string only paints a thin slice of the UI. The idea here was to patch the desktop app to inject custom CSS at startup for deeper theming — it never held up in practice.
 
 ### Files
 
-- **`scripts/build-slack-css.mjs`** — codegen. Generates `~/.config/slack-uber-theme/theme.css` from the active theme. Chained into the default `npm run build` since it's a pure file write (no clipboard side effect, no Slack process touched).
+- **`scripts/build-slack-css.mjs`** — codegen. Generates `~/.config/slack-uber-theme/theme.css` from the active theme. (No longer chained into `npm run build` as of the 2026-05-12 deprecation — invoke manually if reviving this path.)
 - **`scripts/patch-slack-app.mjs`** — one-shot patcher. Three modes via flags:
   - default → apply patch
   - `--restore` → roll back from `app-<arch>.asar.uber-backup`
@@ -62,7 +66,7 @@ Slack's legacy theme string only paints a thin slice of the UI. For deeper themi
 ### Commands
 
 ```
-npm run build:slack-css      — regenerate the CSS (chained into `npm run build`)
+npm run build:slack-css      — regenerate the CSS (manual-only since the 2026-05-12 deprecation; no longer in `npm run build`)
 npm run status:slack-app     — read-only: arch, asar path, backup, patched yes/no, CSS file existence
 
 # Patch / restore intentionally have NO npm script — they require sudo, and
@@ -100,6 +104,6 @@ Wrapped in `try/catch` so a missing/broken CSS file can't crash the renderer. Ma
 - **Slack changes its bundle layout.** Patcher targets `dist/preload.bundle.js` and aborts before any sudo writes if that path is missing. If Slack moves it, the patcher needs to be updated to find the new entry.
 - **Slack ships breaking CSS class changes.** The CSS file uses both internal `--sk_*` custom properties and direct selectors (`.p-channel_sidebar`, `.p-top_nav`, etc.). Both targets shift between major Slack releases. Coverage gaps need to be debugged via Slack DevTools (enable with `defaults write com.tinyspeck.slackmacgap SlackNoAutoUpdates -bool true; SLACK_DEVELOPER_MENU=true open -a Slack`) and selectors added to `scripts/build-slack-css.mjs`. (`open -a Slack` resolves to whichever location the patcher is using — `~/Applications/Slack.app` per the workflow above, falling back to `/Applications/Slack.app`. Don't hardcode either path.)
 
-### Why `build:slack-css` is chained but the patcher is not
+### History: chaining `build:slack-css`
 
-`build:slack-css` writes one file, no system surgery — safe to run on every theme tweak, hence its inclusion in the default `npm run build` chain. The patcher (`scripts/patch-slack-app.mjs`) requires sudo, modifies a system app, and re-signs — it's a one-time setup ritual (re-run only after Slack auto-updates), not a per-build step. Running it on every `npm run build` would be hostile.
+Before the 2026-05-12 deprecation, `build:slack-css` *was* in the default `npm run build` chain (it writes one file, no system surgery — safe per-build), while the patcher (`scripts/patch-slack-app.mjs`) was always manual (sudo, modifies a system app, re-signs — a one-time ritual re-run only after Slack auto-updates; running it per-build would be hostile). The whole CSS-injection path was pulled from the chain because the patcher half never held up — see the banner at the top. If reviving, `build:slack-css` can safely go back in the chain, but only once the patcher workflow is re-validated.
