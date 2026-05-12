@@ -6,14 +6,14 @@ Guidance for Claude Code working in this repository.
 
 Desktop widgets for [Übersicht](https://github.com/felixhageloh/uebersicht) — five widgets (Status, Weather, Calendar, Now Playing, Clock) rendered as React JSX inside Übersicht's WebView. Status aggregates Claude / OpenAI / Gemini / GitHub / Jira status feeds into a single pill list. Most data comes from Python backend scripts; the frontend is TypeScript/TSX transpiled to JSX.
 
-The repo also hosts other Mac customization code driven by the same design tokens: **Hammerspoon** config under `hammerspoon/`, **JankyBorders** config under `borders/`, a **Bartender** menu bar style codegen, a deprecated codegen for **Thaw** (Ice fork, deprecated 2026-04-24 in favor of Bartender), a **Warp** terminal theme codegen, a **Slack** CSS-injection codegen, and an **Obsidian** CSS snippet codegen.
+The repo also hosts other Mac customization code driven by the same design tokens: **Hammerspoon** config under `hammerspoon/`, **JankyBorders** config under `borders/`, a **Bartender** menu bar style codegen, a deprecated codegen for **Thaw** (Ice fork, deprecated 2026-04-24 in favor of Bartender), a **Warp** terminal theme codegen, a deprecated **Slack** CSS-injection codegen (deprecated 2026-05-12 — the asar-patch path was never reliable; the legacy `build:slack` sidebar string remains as a standalone manual option), and an **Obsidian** CSS snippet codegen.
 
-Design tokens live in `src/themes/`. The currently-active theme is re-exported through `src/themes/_active.ts`; every consumer (widgets, Hammerspoon, JankyBorders, Bartender, Warp, Slack, Obsidian) reads through that single pointer, so switching themes changes the look everywhere on the next `npm run build`.
+Design tokens live in `src/themes/`. The currently-active theme is re-exported through `src/themes/_active.ts`; every consumer (widgets, Hammerspoon, JankyBorders, Bartender, Warp, Obsidian) reads through that single pointer, so switching themes changes the look everywhere on the next `npm run build`.
 
 ## Commands
 
-- **`npm run build`** — runs `build:widgets` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:slack-css` → `build:obsidian` in sequence. (`build:thaw` is deprecated — not chained, still manually invokable.)
-- **`npm run build:<target>`** — `widgets`, `hammerspoon`, `borders`, `bartender`, `warp`, `slack-css`, `obsidian`, or `thaw`. Use when iterating on one codegen.
+- **`npm run build`** — runs `build:widgets` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:obsidian` in sequence. (`build:thaw` and `build:slack-css` are deprecated — not chained, still manually invokable; `build:slack` was always standalone.)
+- **`npm run build:<target>`** — `widgets`, `hammerspoon`, `borders`, `bartender`, `warp`, `obsidian`, `slack`, `slack-css`, or `thaw`. Use when iterating on one codegen.
 - **`npm run theme`** — list themes + show current.
 - **`npm run theme <name>`** — switch active theme + rebuild everything.
 - **`npm run typecheck`** — `tsc --noEmit`. No test suite; `npm test` is a placeholder.
@@ -32,8 +32,9 @@ Detailed guidance lives in `.claude/rules/` (always-on constraints) and `.claude
 | Bartender menu bar style, `scripts/build-bartender-theme.mjs`, `stored_style` plist | skill: `bartender-menu-bar` |
 | Thaw codegen (deprecated), re-enabling Thaw, Ice 0.2-alpha rationale | skill: `thaw-menu-bar` |
 | Warp YAML codegen, ANSI palette mapping, Warp opacity/blur | skill: `warp-terminal` |
-| Slack sidebar theme string codegen, 8-color clipboard paste flow | skill: `slack-theme` |
+| Slack codegens (deprecated CSS injection + asar patch; legacy sidebar string) | skill: `slack-theme` |
 | Obsidian CSS snippet codegen, vault auto-discovery, glass surface treatment | skill: `obsidian-theme` |
+| Adding Spotify / Spicetify integration (don't, unless asar-patching Spotify) | skill: `spotify-spicetify-not-viable` |
 | Refresh frequencies, layout cadence, perf rationale | skill: `performance-tuning` |
 | Widget build pipeline constraints (root `.jsx` small, ESM imports, backdrop-filter keepalive, cross-bundle state) | rule: `widget-build-invariants` (always loaded) |
 

@@ -60,7 +60,11 @@ export const render = ({ output, error }: RenderProps) => {
       <div>
         <h1>{icons.status ? <span className="icon">{icons.status}</span> : null}Status</h1>
         {providers.map((p) => {
-          const text = p.description || "Unavailable";
+          // Operational feeds report a verbose "All Systems Operational" from
+          // statuspage.io — collapse that to a single word so "Provider: …"
+          // stays on one line at narrow card widths. Non-operational states
+          // keep the upstream description, where the detail actually matters.
+          const text = isOperational(p.indicator) ? "Operational" : p.description || "Unavailable";
           const pill = (
             <span className={pillClass(p.indicator)}>
               {!isOperational(p.indicator) && p.url ? (

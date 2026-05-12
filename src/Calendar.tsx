@@ -99,10 +99,6 @@ export const render = ({ output, error }: RenderProps) => {
 
     const events = data.events ?? [];
     const focusWord = data.focus === "tomorrow" ? "Tomorrow" : "Today";
-    const hint =
-      data.focus === "tomorrow"
-        ? `After ${data.eveningHour}:00, showing tomorrow.`
-        : `From ${data.eveningHour}:00, showing tomorrow instead.`;
 
     return (
       <div>
@@ -110,7 +106,6 @@ export const render = ({ output, error }: RenderProps) => {
         <h2>
           {focusWord} · {data.focusLabel || ""}
         </h2>
-        <p className="small">{hint}</p>
         {events.length === 0 ? (
           <p className="small">No upcoming events.</p>
         ) : (

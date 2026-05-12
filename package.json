@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "npm run build:widgets && npm run build:hammerspoon && npm run build:borders && npm run build:bartender && npm run build:warp && npm run build:slack-css && npm run build:obsidian",
+    "build": "npm run build:widgets && npm run build:hammerspoon && npm run build:borders && npm run build:bartender && npm run build:warp && npm run build:obsidian",
     "build:widgets": "node scripts/build-widgets.mjs",
     "build:hammerspoon": "node scripts/build-hammerspoon-theme.mjs",
     "build:borders": "node scripts/build-borders-config.mjs",
@@ -25,6 +25,7 @@
   "devDependencies": {
     "@types/react": "^19.2.14",
     "esbuild": "^0.28.0",
+    "sharp": "^0.34.5",
     "typescript": "^6.0.2"
   }
 }

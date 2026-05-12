@@ -1,17 +1,23 @@
 // Classic centered clock. No backend — the render function reads `new Date()`
 // directly. `date` is used as the command so Übersicht re-renders on each tick.
 
+import { layout } from "./widget_theme.js";
+
 export const command = "date";
 
 export const refreshFrequency = 30000;
 
+// font-weight 200 is honored by themes whose fontStack has an ultralight cut
+// (SF Pro Display, Helvetica Neue); mono stacks (e.g. obsidian-glass's SF Mono)
+// have no hairline weight, so the browser falls back to their lightest available
+// face — a deliberately blockier hero clock for those themes.
 export const className = `
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
   color: rgba(255, 255, 255, 0.92);
-  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-family: ${layout.fontStack};
   font-weight: 200;
   -webkit-font-smoothing: antialiased;
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
