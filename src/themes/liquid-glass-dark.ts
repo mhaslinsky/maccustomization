@@ -4,7 +4,18 @@
 // Better text legibility over bright / busy wallpapers; less literally
 // "iOS 26 Liquid Glass" but closer to what Apple ships for dark-mode surfaces.
 
-import type { AccentSpec, Icons, Layout, Primary, Status, WidgetAccent } from "./_types.js";
+import type { AccentSpec, Controls, Icons, Layout, Primary, Status, WidgetAccent } from "./_types.js";
+
+// Codegen-side perceptual knobs. Glass themes pin all three Warp values
+// explicitly (even at codegen defaults) so a future UI sees a uniform
+// surface across all glass themes — every slider is always populated.
+export const controls: Controls = {
+  warp: {
+    bgImageOpacity: 20,
+    noiseAlphaMax: 140,
+    noiseDarkProb: 0.5,
+  },
+};
 
 export const layout: Layout = {
   left: "10px",

@@ -6,7 +6,11 @@
 //
 // Palette reference: https://catppuccin.com/palette (Macchiato flavor).
 
-import type { AccentSpec, Icons, Layout, Primary, Status, WidgetAccent } from "./_types.js";
+import type { AccentSpec, Controls, Icons, Layout, Primary, Status, WidgetAccent } from "./_types.js";
+
+// Codegen-side perceptual knobs. Empty here because catppuccin-macchiato is
+// opaque — Warp's image-background path is gated on `isGlassTheme`.
+export const controls: Controls = {};
 
 export const layout: Layout = {
   left: "24px",

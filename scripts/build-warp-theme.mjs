@@ -16,9 +16,10 @@
 import * as esbuild from "esbuild";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
+import { readFile, writeFile, mkdir, unlink, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { execSync } from "node:child_process";
+import { generateWarpBackground } from "./generate-warp-bg.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const activeSrc = join(root, "src", "themes", "_active.ts");
@@ -36,8 +37,7 @@ const result = await esbuild.build({
   logLevel: "silent",
 });
 const code = result.outputFiles[0].text;
-const dataUrl =
-  "data:text/javascript;base64," + Buffer.from(code).toString("base64");
+const dataUrl = "data:text/javascript;base64," + Buffer.from(code).toString("base64");
 const theme = await import(dataUrl);
 
 // ---------------------------------------------------------------------------
@@ -58,9 +58,7 @@ function parseColor(color) {
     const n = parseInt(hex6[1], 16);
     return { r: (n >> 16) & 0xff, g: (n >> 8) & 0xff, b: n & 0xff, a: 1 };
   }
-  const rgba = color.match(
-    /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/
-  );
+  const rgba = color.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/);
   if (rgba) {
     return {
       r: parseInt(rgba[1], 10),
@@ -127,10 +125,7 @@ const bgBase =
         b: Math.round(bgParsed.b * 0.4),
         a: 1,
       };
-const bgFlat =
-  bgParsed.a >= 1
-    ? toHex(bgParsed)
-    : toHex(composite(bgParsed, bgBase));
+const bgFlat = bgParsed.a >= 1 ? toHex(bgParsed) : toHex(composite(bgParsed, bgBase));
 
 // Glass themes (translucent cardBg) get a vertical gradient background to
 // echo the widget look — widgets carry an inset top-edge white highlight
@@ -144,6 +139,19 @@ const bgFlat =
 // themes — we keep that path so non-glass themes (catppuccin, default)
 // don't pick up a gradient they weren't designed for.
 const isGlassTheme = bgParsed.a < 1;
+// Desaturate the bg before deriving the gradient. Tinted cardBgs
+// (frutiger-aero's sky-blue) carry through as a strongly cyan terminal
+// background, which fights with the wallpaper at 25% opacity. Pulling the
+// bg toward its luminance-equivalent gray drops the chroma without
+// touching brightness — the gradient stays just as crisp, just less blue.
+// Applied only to the gradient; cssToHex composites still use the original
+// bgFlat so ANSI normalization is unaffected.
+//
+// Lighter desaturation (0.4 vs 0.7) than the bare-gradient path used to
+// run, because the gradient now bakes into a JPEG composited at 60% opacity
+// over the saturated `bgFlat` solid — the solid base mixes color back in,
+// so the gradient itself can carry more chroma without overpowering.
+const bgForGradient = isGlassTheme ? desaturate(bgFlat, 0.4) : bgFlat;
 // IMPORTANT readability constraint: Warp's `font_color` calls
 // `pick_best_foreground_color(local_surface, theme.background_midpoint,
 // theme.foreground)` and picks whichever extreme has more contrast
@@ -157,11 +165,11 @@ const bgGradient = isGlassTheme
       // Top is brightened from the cardBg-tinted base, but capped so the
       // top edge doesn't drift above midtone — at 25% opacity, anything
       // brighter starts losing contrast against pale wallpaper sections.
-      top: brighten(bgFlat, 0.18),
+      top: brighten(bgForGradient, 0.18),
       // Bottom darkened more aggressively. This is what anchors the
       // gradient midpoint dark enough that `pick_best_foreground_color`
       // reliably picks white.
-      bottom: darken(bgFlat, 0.35),
+      bottom: darken(bgForGradient, 0.35),
     }
   : null;
 
@@ -183,9 +191,7 @@ const detailsKind = luminance < 128 ? "darker" : "lighter";
 // crushed against busy/bright wallpapers — pure white is the only fg
 // that stays readable across arbitrary backdrops. Opaque themes keep
 // using the accent text color (no transparency, no readability concern).
-const fg = isGlassTheme
-  ? "#ffffff"
-  : cssToHex(theme.accents.status.text, bgFlat);
+const fg = isGlassTheme ? "#ffffff" : cssToHex(theme.accents.status.text, bgFlat);
 // Accent: opaque themes use menuBarTint (always saturated/full-alpha; avoids
 // the gray-out that primary.active causes in glass themes where the border is
 // white). Glass themes route through accents.status.h1 instead — menuBarTint
@@ -232,6 +238,20 @@ function brighten(hex, amount = 0.2) {
   });
 }
 
+// Pull each channel toward its luminance-equivalent gray. Drops chroma
+// without changing perceived brightness — useful when a tinted cardBg
+// reads too saturated at Warp's low window opacity.
+function desaturate(hex, amount = 0.5) {
+  const c = parseColor(hex);
+  const gray = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+  return toHex({
+    r: Math.round(c.r + (gray - c.r) * amount),
+    g: Math.round(c.g + (gray - c.g) * amount),
+    b: Math.round(c.b + (gray - c.b) * amount),
+    a: 1,
+  });
+}
+
 // Mirror image of brighten — pull each channel toward black.
 function darken(hex, amount = 0.1) {
   const c = parseColor(hex);
@@ -267,12 +287,43 @@ const bright = {
 const displayName = `Uber ${themeName.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}`;
 const outFile = join(warpThemesDir, `uber-${themeName}.yaml`);
 
-// Background renders as either a flat hex string (Fill::Solid) or a YAML
-// mapping (Fill::VerticalGradient). Warp's `Fill` enum is `untagged`, so
-// serde dispatches on the YAML shape — a string deserializes to Solid, a
-// mapping with top/bottom keys deserializes to VerticalGradient.
+// Background composition:
+// - Opaque themes (catppuccin, default): flat hex `background: "#..."`.
+// - Glass themes: render a Frutiger-Aero/Zen-style grainy JPEG (vertical
+//   gradient + soft accent hot-spot + film grain) and reference it via
+//   `background_image: { path, opacity }`. Warp's schema only accepts
+//   JPEG and only one of `background:` (gradient) OR `background_image:` —
+//   the image fully replaces the gradient when present.
+//
+// `background:` still emits a *solid* anchor color so Warp's
+// `pick_best_foreground_color` has a stable surface for contrast picking
+// even when the image hasn't loaded yet.
+const bgImageFile = `uber-${themeName}.jpg`;
+const bgImagePath = join(warpThemesDir, bgImageFile);
+// Tunable knobs come from the theme's optional `controls.warp` block
+// (see src/themes/_types.ts → WarpControls). Each falls back to a built-in
+// default if the theme doesn't override.
+const warpControls = theme.controls?.warp ?? {};
+const bgImageOpacity = warpControls.bgImageOpacity ?? 20;
+const noiseAlphaMax = warpControls.noiseAlphaMax ?? 140;
+const noiseDarkProb = warpControls.noiseDarkProb ?? 0.5;
+
+// We compose the YAML first; the JPEG is rendered later, only if the YAML
+// actually changed or the image is missing on disk. Sharp + raw-buffer
+// noise is ~250ms which adds up across rebuilds.
+//
+// The YAML diff is our regen trigger, so we embed a fingerprint comment
+// containing every input that affects the JPEG (gradient stops + hot-spot
+// color + noise knobs). Without it, tweaking the noise alpha in a theme's
+// `controls.warp` block would keep producing the same `background:` hex +
+// `background_image:` stanza, fileChanged would stay false, and the stale
+// image would never regenerate.
+const hotspotColor = bgGradient ? cssToHex(theme.accents.status.h1, bgFlat) : null;
+const bgImageFingerprint = bgGradient
+  ? `# bg-image: top=${bgGradient.top} bottom=${bgGradient.bottom} hotspot=${hotspotColor} noiseAlphaMax=${noiseAlphaMax} noiseDarkProb=${noiseDarkProb}`
+  : "";
 const backgroundYaml = bgGradient
-  ? `background:\n  top: "${bgGradient.top}"\n  bottom: "${bgGradient.bottom}"`
+  ? `background: "${bgFlat}"\nbackground_image:\n  path: ${bgImageFile}\n  opacity: ${bgImageOpacity}\n${bgImageFingerprint}`
   : `background: "${bgFlat}"`;
 
 const yaml = `# AUTO-GENERATED by scripts/build-warp-theme.mjs
@@ -324,13 +375,41 @@ const fileChanged = existing !== yaml;
 if (fileChanged) {
   await writeFile(outFile, yaml, "utf8");
   const bgDesc = bgGradient
-    ? `bg: ${bgGradient.top}→${bgGradient.bottom} (gradient)`
+    ? `bg: ${bgGradient.top}→${bgGradient.bottom} + grain image @${bgImageOpacity}%`
     : `bg: ${bgFlat}`;
-  console.log(
-    `Generated ~/.warp/themes/uber-${themeName}.yaml  (${bgDesc}, fg: ${fg}, accent: ${accent})`
-  );
+  console.log(`Generated ~/.warp/themes/uber-${themeName}.yaml  (${bgDesc}, fg: ${fg}, accent: ${accent})`);
 } else {
   console.log(`(~/.warp/themes/uber-${themeName}.yaml unchanged.)`);
+}
+
+let bgImageRegenerated = false;
+if (bgGradient) {
+  let imageMissing = false;
+  try {
+    await stat(bgImagePath);
+  } catch {
+    imageMissing = true;
+  }
+  if (fileChanged || imageMissing) {
+    await generateWarpBackground({
+      gradient: bgGradient,
+      hotspotColor,
+      outPath: bgImagePath,
+      noiseAlphaMax,
+      noiseDarkProb,
+    });
+    bgImageRegenerated = true;
+    const s = await stat(bgImagePath);
+    console.log(`Generated ~/.warp/themes/${bgImageFile}  (${(s.size / 1024).toFixed(0)} KB)`);
+  }
+} else {
+  // Opaque theme — drop any stale glass-theme JPEG from a prior switch.
+  try {
+    await unlink(bgImagePath);
+    console.log(`Removed stale ~/.warp/themes/${bgImageFile}.`);
+  } catch {
+    // Doesn't exist — nothing to do.
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -355,10 +434,9 @@ try {
 
 const selectionChanged = currentTheme !== wantedTheme;
 if (selectionChanged) {
-  execSync(
-    `defaults write dev.warp.Warp-Stable Theme -string ${JSON.stringify(wantedTheme)}`,
-    { stdio: "ignore" }
-  );
+  execSync(`defaults write dev.warp.Warp-Stable Theme -string ${JSON.stringify(wantedTheme)}`, {
+    stdio: "ignore",
+  });
   console.log(`Set Warp active theme → "${displayName}".`);
 }
 
@@ -381,13 +459,13 @@ if (legacyFile !== outFile) {
 // Warp doesn't watch its theme files OR its prefs file, so a relaunch is
 // the only way to apply updates.
 // ---------------------------------------------------------------------------
-if (!fileChanged && !selectionChanged) {
+if (!fileChanged && !selectionChanged && !bgImageRegenerated) {
   process.exit(0);
 }
 
 try {
   execSync("pgrep -x Warp", { stdio: "ignore" });
-  execSync('osascript -e \'tell application "Warp" to quit\'', {
+  execSync("osascript -e 'tell application \"Warp\" to quit'", {
     stdio: "ignore",
   });
   execSync("sleep 0.5", { stdio: "ignore" });

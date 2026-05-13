@@ -82,6 +82,49 @@ export type MenuBarTint = string;
 // for every theme that predates the icons token.
 export type Icons = Partial<Record<WidgetAccent, string>>;
 
+// Per-consumer perceptual tuning knobs. Every field is optional and the
+// associated codegen falls back to its built-in default when a value is
+// omitted. Themes that don't need to tune anything export `controls = {}`.
+//
+// JSDoc `@min / @max / @step / @description` tags on the field types are
+// free metadata for a future "human-manipulable" UI to introspect ranges
+// and labels without a parallel schema object.
+export type Controls = {
+  warp?: WarpControls;
+};
+
+export type WarpControls = {
+  /**
+   * Opacity of the generated background JPEG that glass themes reference
+   * from `~/.warp/themes/uber-<theme>.yaml` via `background_image.opacity`.
+   * Higher = grainy gradient image dominates; lower = wallpaper bleeds
+   * through more. Codegen default lives in `scripts/build-warp-theme.mjs`.
+   * No effect on non-glass themes — Warp's image-background path is gated
+   * on `isGlassTheme`.
+   * @min 0 @max 100 @step 1
+   * @description "Warp BG image opacity"
+   */
+  bgImageOpacity?: number;
+  /**
+   * Peak alpha (0–255) of the salt-and-pepper film grain composited into
+   * the background JPEG. Higher = grainier surface. Codegen default lives
+   * in `scripts/generate-warp-bg.mjs`. Has to survive Warp's `OverrideOpacity`
+   * multiplier — see the warp-terminal SKILL.md "Salt-and-pepper noise vs.
+   * window opacity" section before pushing it below ~70 at low OverrideOpacity.
+   * @min 0 @max 255 @step 1
+   * @description "Film grain intensity"
+   */
+  noiseAlphaMax?: number;
+  /**
+   * Fraction of grain pixels that darken vs. brighten the surface (0–1).
+   * 0.5 = balanced salt-and-pepper. >0.5 = darker grain (helps text against
+   * bright wallpapers). <0.5 = brighter / "dustier" grain.
+   * @min 0 @max 1 @step 0.05
+   * @description "Grain darkness bias"
+   */
+  noiseDarkProb?: number;
+};
+
 export type Theme = {
   accents: Record<WidgetAccent, AccentSpec>;
   layout: Layout;
@@ -89,4 +132,5 @@ export type Theme = {
   primary: Primary;
   menuBarTint: MenuBarTint;
   icons: Icons;
+  controls: Controls;
 };

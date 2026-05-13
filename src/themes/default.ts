@@ -3,7 +3,12 @@
 // borders. Preserved verbatim so we can always switch back to it when
 // experimenting with other themes.
 
-import type { AccentSpec, Icons, Layout, Primary, Status, WidgetAccent } from "./_types.js";
+import type { AccentSpec, Controls, Icons, Layout, Primary, Status, WidgetAccent } from "./_types.js";
+
+// Codegen-side perceptual knobs that don't fit the semantic-token model
+// below. Empty here because the default theme is opaque — Warp's
+// image-background path is gated on `isGlassTheme` and the knobs are moot.
+export const controls: Controls = {};
 
 export const layout: Layout = {
   left: "24px",
