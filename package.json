@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "npm run build:widgets && npm run build:hammerspoon && npm run build:borders && npm run build:bartender && npm run build:warp && npm run build:obsidian",
+    "build": "npm run build:widgets && npm run validate:controls && npm run build:hammerspoon && npm run build:borders && npm run build:bartender && npm run build:warp && npm run build:obsidian",
     "build:widgets": "node scripts/build-widgets.mjs",
+    "validate:controls": "node scripts/validate-controls.mjs",
+    "verify": "node scripts/verify-controls.mjs",
     "build:hammerspoon": "node scripts/build-hammerspoon-theme.mjs",
     "build:borders": "node scripts/build-borders-config.mjs",
     "build:bartender": "node scripts/build-bartender-theme.mjs",
