@@ -12,7 +12,9 @@ The [Warp](https://www.warp.dev/) terminal theme is generated from the active wi
 ## Files
 
 - **`scripts/build-warp-theme.mjs`** — codegen. Same esbuild-bundle → data-URL → dynamic-import pattern as the others. Converts CSS `rgba()` tokens to flat `#RRGGBB` hex by compositing against the background color (Warp's ANSI palette has no alpha support).
+- **`scripts/generate-warp-bg.mjs`** — image helper. Renders the grainy gradient JPEG that glass themes reference via `background_image:`. Pure sharp (SVG → raster + raw-buffer noise composite). Called from `build-warp-theme.mjs`.
 - **`~/.warp/themes/uber-<theme>.yaml`** — external state. One file per theme name, regenerated on every `npm run build`.
+- **`~/.warp/themes/uber-<theme>.jpg`** — generated background image (glass themes only). On opaque-theme builds the script deletes only its own matching `uber-<themeName>.jpg`; JPEGs from prior glass-theme builds (other theme names) are left in place. Switching back to that theme will reuse the stale file unless you also delete it manually.
 
 ## Theme → Warp mapping
 
@@ -32,7 +34,7 @@ The [Warp](https://www.warp.dev/) terminal theme is generated from the active wi
 
 Bright variants are each normal color pushed ~20% toward white. `details` is auto-detected as `"darker"` or `"lighter"` based on background luminance.
 
-The codegen also emits a `selection:` line (computed as `menuBarTint` at 25% alpha over bg), but **Warp ignores it** — `selection` is not a field on `WarpTheme` in current source. It's harmless legacy output kept because removing it requires no behavior change either way; do not rely on it.
+The codegen also emits a `selection:` line (computed as the same `accentSource` it uses for `accent` — `menuBarTint` for opaque themes, `accents.status.h1` for glass themes — composited at 25% alpha over bg), but **Warp ignores it** — `selection` is not a field on `WarpTheme` in current source. It's harmless legacy output kept because removing it requires no behavior change either way; do not rely on it.
 
 ## Activation
 
@@ -103,6 +105,40 @@ For themes with translucent `cardBg` (alpha < 1 — currently `liquid-glass`, `l
 1. **Hue-preserving compositing base.** Instead of compositing onto a fixed near-black `rgb(6,8,28)` (which drains hue out of tinted cardBgs at Warp's higher opacity), we derive the base from `cardBg.rgb * 0.4` — a darker version of the same hue. Lets sky-blue stay sky-blue through Warp's compositing.
 2. **Vertical gradient background** — `top: brighten(bgFlat, 0.18)`, `bottom: darken(bgFlat, 0.35)`. Top brightened to read as the lit edge of glass; bottom darkened more aggressively for a critical reason — see the readability gotcha below.
 3. **Pure white foreground** — `#ffffff` instead of the theme's accent text color (`accents.status.text`). At 25% window opacity the wallpaper bleeds through enough that off-white tints (e.g. frutiger-aero's `#f0faff`) get crushed.
+
+### Background image (Frutiger-Aero / Zen-style grainy gradient)
+
+For glass themes, the YAML now emits BOTH a flat `background:` solid AND a `background_image: { path, opacity }` pointing at a generated JPEG (`uber-<theme>.jpg`). The opacity value is the `bgImageOpacity` constant in `scripts/build-warp-theme.mjs` (currently 100; check the source for the live value before quoting). The JPEG bakes:
+
+1. Vertical linear gradient using `bgGradient.top → bgGradient.bottom` (the same values the bare-gradient path used to put in YAML — they now go into the image instead).
+2. Soft radial hot-spot at 55% × 68%, color `accents.status.h1`, peaking at 35% opacity.
+3. **Salt-and-pepper film grain** — raw RGBA noise buffer composited via sharp's `over` blend. Each pixel is either fully bright (`255,255,255`) or fully dark (`0,0,0`) with random alpha 0..`NOISE_ALPHA_MAX`. See "Salt-and-pepper noise vs. window opacity" below for why this is bidirectional rather than just bright.
+
+**Why a generated JPEG and not just a YAML gradient:** Warp accepts only `background:` gradient OR `background_image:`, not both as visual layers. The image lets us add the hot-spot and film grain that no built-in field can do, while the solid `background:` color stays in YAML so Warp's `pick_best_foreground_color` has a stable surface for contrast calculations even before the image loads.
+
+**JPEG-only constraint:** Warp's docs and source both restrict `background_image.path` to `.jpg`/`.jpeg`. PNG/WebP are silently ignored.
+
+**Why raw-buffer noise instead of SVG `feTurbulence`:** sharp uses librsvg, whose feTurbulence support is unreliable across versions (an early implementation rendered as a uniform alpha wash with no visible noise). Generating noise as raw RGBA bytes and compositing with sharp is bulletproof.
+
+**Tuning knobs** (in `scripts/generate-warp-bg.mjs`):
+- `NOISE_ALPHA_MAX` (default 140) — peak grain opacity 0–255. Calibrated so the grain is still legible after Warp's window-opacity multiplier; lower values disappear at low `OverrideOpacity` (see "Salt-and-pepper noise vs. window opacity" below). Above ~200 reads as static noise rather than frosted-glass.
+- `NOISE_DARK_PROBABILITY` (default 0.5) — fraction of grain pixels that darken vs. brighten. Push toward 0.6–0.7 for darker overall surface (helps text legibility against bright wallpapers); push toward 0.3–0.4 for a brighter, "dustier" look.
+- Hot-spot position — `cx="55%" cy="68%"` in the SVG. Lower-center matches the Zen reference.
+- `WIDTH × HEIGHT` (default 2400 × 1500) — kept larger than typical terminal panes so noise survives downscale + JPEG DCT compression.
+
+### Salt-and-pepper noise vs. window opacity (the load-bearing trick)
+
+**Constraint:** Warp applies `OverrideOpacity` uniformly to the entire surface — there's no way to make the image opaque while the rest of the window is transparent. So when `OverrideOpacity` drops (more wallpaper bleed-through), the grain fades by the *same* multiplier as everything else. They're coupled. ([Open issue requesting per-element opacity](https://github.com/warpdotdev/Warp/issues/5335) is unresolved as of 2026-05.)
+
+**The trick:** Instead of just bright (white-only) noise — which can only *brighten* the wallpaper and disappears against pale backgrounds — use **salt-and-pepper**: each grain pixel is either fully bright or fully dark with random alpha. The dark-pepper grains darken whatever they composite over, the bright-salt grains brighten it. This produces *bidirectional local contrast* that survives any window opacity setting because both halves still modulate the wallpaper, just at the same reduced magnitude.
+
+**Why it matters for text legibility:** at `OverrideOpacity: 15`, the surface is 15% of pure-white-noise variance + 85% wallpaper. White-only noise washes out against a bright wallpaper because there's no contrast direction available. Salt-and-pepper provides 15% of *bidirectional* variance — the dark grains keep darkening the wallpaper enough to anchor text where they land. It's a perceptual trick (the eye reads grain as "covered" surface), not a uniform contrast guarantee — but it's the closest you can get to "transparent window with stable text backing" on Warp's compositing model.
+
+**Compensation rule of thumb:** In-image grain alpha needs to be roughly `target_visible / OverrideOpacity_fraction`. For OverrideOpacity 15 (0.15), a target of ~20% visible variance ⇒ in-image alpha ~135/255. The default 140 lands here. If you bump `OverrideOpacity` back up (e.g. 30), you can drop `NOISE_ALPHA_MAX` proportionally (~70).
+
+**Cache invalidation:** The image's content depends on `bgGradient.top/bottom` and `hotspotColor`, but those don't appear in the YAML's payload (only `background:` and `background_image: { path, opacity }`). So `build-warp-theme.mjs` embeds a fingerprint comment (`# bg-image: top=... bottom=... hotspot=...`) in the YAML, which forces the YAML diff to fire whenever any image-determining input changes. Without this fingerprint, tweaking the desaturation factor or the noise alpha would never trigger a regen.
+
+**Desaturation factor relaxed for image path.** The bare-gradient path used `desaturate(bgFlat, 0.7)` to fight wallpaper bleed-through at 25% window opacity. With the image at 60% over the saturated `bgFlat` solid, the solid base mixes color back in, so the gradient itself can carry more chroma — current factor is `0.4`. If the gradient ever reads too gray, lower this further; if it reads too saturated and fights the wallpaper, raise it.
 
 ### Readability gotcha — the gradient midpoint matters
 
