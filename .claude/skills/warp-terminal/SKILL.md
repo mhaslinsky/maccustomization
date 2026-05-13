@@ -20,7 +20,7 @@ The [Warp](https://www.warp.dev/) terminal theme is generated from the active wi
 
 | Warp field | Source |
 |---|---|
-| `background` | `layout.cardBg` composited onto a dark base — flat hex for opaque themes; vertical gradient for translucent (glass) themes (see "Glass-theme codegen behavior") |
+| `background` | `layout.cardBg` composited onto a dark base → flat hex (`bgFlat`). Used as the solid YAML `background:` value for both opaque AND glass themes. Glass themes additionally emit a `background_image: { path, opacity }` block referencing the generated JPEG (see "Glass-theme codegen behavior") — the JPEG is the visual layer, the flat hex is what Warp's contrast picker reads. |
 | `foreground` | `accents.status.text` for opaque themes; pure `#ffffff` for glass themes |
 | `accent` / `cursor` | Opaque themes: `menuBarTint` (always saturated — avoids the gray-out `primary.active` causes in glass themes where the border is white). Glass themes: `accents.status.h1` — `menuBarTint` is tuned for the menu bar (Ice 0.2-alpha cap forces a saturated hex), but at Warp's 25% window opacity that saturated tone reads dirty next to the pale-glass bg; `status.h1` is the pastel aqua already used for widget headers and matches the design intent. |
 | ANSI red | `status.bad` |
@@ -29,7 +29,7 @@ The [Warp](https://www.warp.dev/) terminal theme is generated from the active wi
 | ANSI blue | `accents.status.border` (composited) |
 | ANSI magenta | `accents.nowplaying.h1` |
 | ANSI cyan | `accents.status.h1` |
-| ANSI black | background color (gradient midpoint for glass themes) |
+| ANSI black | `bgFlat` (the same flat hex emitted as `background:`, for both opaque and glass themes) |
 | ANSI white | foreground color |
 
 Bright variants are each normal color pushed ~20% toward white. `details` is auto-detected as `"darker"` or `"lighter"` based on background luminance.
@@ -40,7 +40,11 @@ The codegen also emits a `selection:` line (computed as the same `accentSource` 
 
 The codegen writes one YAML per theme (`uber-<theme>.yaml`) AND updates Warp's active selection by writing the `Theme` key in `dev.warp.Warp-Stable.plist`. The stored value is JSON: `{"Custom":{"name":"Uber <Theme>","path":"<absolute path>"}}`. After updating, Warp is killed and relaunched so the new selection takes effect. No manual theme picking required.
 
+**Detection gotcha — pgrep is broken on macOS for this app, use AppleScript.** The Warp binary is at `/Applications/Warp.app/Contents/MacOS/stable`. `ps -ax -o ucomm` displays the process name as `stable`, but the kernel-level `p_comm` value that `pgrep` matches against doesn't agree — both `pgrep -x Warp` AND `pgrep -x stable` silently miss while Warp is running. We learned this the hard way: an earlier version of `build-warp-theme.mjs` used `pgrep -x Warp`, was "fixed" to `pgrep -x stable`, and BOTH versions silently fell through to the "Warp not running — skipping restart" branch on every build, even with Warp open. Every `controls.warp.*` tweak appeared to be a no-op because Warp kept serving the cached-at-launch theme. The current version uses `osascript -e 'application "Warp" is running' | grep -q '^true$'` which queries macOS's Process Manager directly. It also `killall stable_app` (the persistent background server that re-attaches windows with stale theme state) between quit and reopen. If you ever see "Warp not running — skipping restart" while Warp IS open, **do not** reach for `pgrep` — verify with `osascript -e 'application "Warp" is running'` directly first.
+
 **Why per-theme files instead of one stable filename:** earlier the script wrote a single `uber-theme.yaml` and only updated the `name:` field inside. Warp's stored selection caches the theme name, so the file path stayed valid but the cached name went stale and Warp would either keep showing the previous theme or silently fall back. One file per theme + an explicit `defaults write` keeps name/path coherent.
+
+**Controls validation — `validate:controls` runs in the build chain.** `scripts/validate-controls.mjs` parses the JSDoc `@min @max @step` tags in `src/themes/_types.ts` via the TypeScript Compiler API, walks every theme under `src/themes/`, and rejects out-of-range / wrong-type / unaligned values across all themes (not just the active one) before the codegens consume the bundled `.js`. Fails the build at that step. Generic — any field whose JSDoc has both `@min` and `@max` is range-checked, regardless of consumer. Tagging is opt-in. The motivating bug: `bgImageOpacity: 0.05` (out of declared 0–100, also violates `@step 1` integer) silently passed through to Warp's YAML and rendered ~0% = invisible image. End-to-end round-trip is checked manually via `npm run verify` (`scripts/verify-controls.mjs`) — compares deployed `~/.warp/themes/uber-<active>.yaml` against the active theme's `controls.warp.*` with codegen defaults filled in for unset fields. Verify is glass-theme-only (skips opaque themes that have no `background_image:`). Defaults in `verify-controls.mjs` are duplicated from `build-warp-theme.mjs` and `generate-warp-bg.mjs` — if those drift, verify fails loudly, which is the point.
 
 ## Skip-if-unchanged
 
@@ -100,15 +104,15 @@ NSUserDefaults changes won't reach a running Warp via window-close — Warp keep
 
 ## Glass-theme codegen behavior
 
-For themes with translucent `cardBg` (alpha < 1 — currently `liquid-glass`, `liquid-glass-dark`, `frutiger-aero`), `build-warp-theme.mjs` switches into a "glass mode" with several differences from the default flat-hex output:
+For themes with translucent `cardBg` (alpha < 1 — currently `liquid-glass`, `liquid-glass-dark`, `frutiger-aero`, `obsidian-glass`), `build-warp-theme.mjs` switches into a "glass mode" with several differences from the default flat-hex output:
 
 1. **Hue-preserving compositing base.** Instead of compositing onto a fixed near-black `rgb(6,8,28)` (which drains hue out of tinted cardBgs at Warp's higher opacity), we derive the base from `cardBg.rgb * 0.4` — a darker version of the same hue. Lets sky-blue stay sky-blue through Warp's compositing.
-2. **Vertical gradient background** — `top: brighten(bgFlat, 0.18)`, `bottom: darken(bgFlat, 0.35)`. Top brightened to read as the lit edge of glass; bottom darkened more aggressively for a critical reason — see the readability gotcha below.
+2. **Background image with vertical gradient baked in.** YAML's `background:` stays as flat hex `bgFlat`. The vertical gradient (`top: brighten(bgFlat, 0.18)`, `bottom: darken(bgFlat, 0.35)`) is rendered into the JPEG referenced by `background_image:`, NOT emitted as a YAML gradient. Top brightened for the lit-glass edge; bottom darkened more aggressively (see "Readability gotcha — bgFlat must stay dark" below for why dark is non-negotiable).
 3. **Pure white foreground** — `#ffffff` instead of the theme's accent text color (`accents.status.text`). At 25% window opacity the wallpaper bleeds through enough that off-white tints (e.g. frutiger-aero's `#f0faff`) get crushed.
 
 ### Background image (Frutiger-Aero / Zen-style grainy gradient)
 
-For glass themes, the YAML now emits BOTH a flat `background:` solid AND a `background_image: { path, opacity }` pointing at a generated JPEG (`uber-<theme>.jpg`). The opacity value is the `bgImageOpacity` constant in `scripts/build-warp-theme.mjs` (currently 100; check the source for the live value before quoting). The JPEG bakes:
+For glass themes, the YAML emits BOTH a flat `background:` solid AND a `background_image: { path, opacity }` pointing at a generated JPEG (`uber-<theme>.jpg`). The opacity comes from `theme.controls?.warp?.bgImageOpacity ?? 20` in `scripts/build-warp-theme.mjs` — codegen default is **20** (Warp's own default is 100, our codegen pins it lower). Per-theme overrides via `controls.warp.bgImageOpacity` (range 0–100, integer; range-checked at build time by `scripts/validate-controls.mjs`). Today `obsidian-glass` overrides to 100; the other glass themes inherit the codegen default. The JPEG bakes:
 
 1. Vertical linear gradient using `bgGradient.top → bgGradient.bottom` (the same values the bare-gradient path used to put in YAML — they now go into the image instead).
 2. Soft radial hot-spot at 55% × 68%, color `accents.status.h1`, peaking at 35% opacity.
@@ -138,9 +142,9 @@ For glass themes, the YAML now emits BOTH a flat `background:` solid AND a `back
 
 **Cache invalidation:** The image's content depends on `bgGradient.top/bottom` and `hotspotColor`, but those don't appear in the YAML's payload (only `background:` and `background_image: { path, opacity }`). So `build-warp-theme.mjs` embeds a fingerprint comment (`# bg-image: top=... bottom=... hotspot=...`) in the YAML, which forces the YAML diff to fire whenever any image-determining input changes. Without this fingerprint, tweaking the desaturation factor or the noise alpha would never trigger a regen.
 
-**Desaturation factor relaxed for image path.** The bare-gradient path used `desaturate(bgFlat, 0.7)` to fight wallpaper bleed-through at 25% window opacity. With the image at 60% over the saturated `bgFlat` solid, the solid base mixes color back in, so the gradient itself can carry more chroma — current factor is `0.4`. If the gradient ever reads too gray, lower this further; if it reads too saturated and fights the wallpaper, raise it.
+**Desaturation factor relaxed for image path.** The previous bare-gradient path used `desaturate(bgFlat, 0.7)` to fight wallpaper bleed-through at 25% window opacity. With the image as overlay over the saturated `bgFlat` solid, the solid base mixes color back in, so the gradient itself can carry more chroma — current factor is `0.4`. If the gradient ever reads too gray, lower this further; if it reads too saturated and fights the wallpaper, raise it.
 
-### Readability gotcha — the gradient midpoint matters
+### Readability gotcha — bgFlat must stay dark
 
 Warp's UI text color is computed by `font_color()` (`crates/warp_core/src/ui/theme/color.rs`):
 
@@ -148,16 +152,20 @@ Warp's UI text color is computed by `font_color()` (`crates/warp_core/src/ui/the
 pub fn font_color(&self, background: impl Into<ColorU>) -> Fill {
     Fill::Solid(pick_best_foreground_color(
         background.into(),       // local surface being painted
-        self.background().into(), // theme bg → midpoint for gradients
+        self.background().into(), // theme bg (= our `bgFlat` solid)
         self.foreground().into(), // theme fg
         MinimumAllowedContrast::Text,
     ))
 }
 ```
 
-`pick_best_foreground_color` picks whichever of `theme.background` (gradient midpoint) or `theme.foreground` has more contrast against the *local surface*. At 25% window opacity over a bright wallpaper, the local surface reads bright. If our gradient midpoint is also bright-ish, the picker chooses the midpoint — which renders as **near-black text** on the wallpaper.
+`pick_best_foreground_color` picks whichever of `theme.background` or `theme.foreground` has more contrast against the *local surface*. Since YAML's `background:` is now the flat hex `bgFlat` (the JPEG is overlay; Warp's contrast picker reads only the YAML field), `theme.background` IS bgFlat — there's no gradient midpoint anymore. At 25% window opacity over a bright wallpaper, the local surface reads bright. If `bgFlat` is also bright-ish, the picker chooses bgFlat → renders as **near-black text** on the wallpaper.
 
-**Therefore:** the gradient endpoints must be set so the midpoint stays clearly dark (luminance ≲ 100/255). The current `0.18 / 0.35` brighten/darken split lands the frutiger-aero midpoint at ~`#4d6b78` (luminance ~100), which keeps white winning the contrast pick across most wallpapers. If the gradient ever needs to be made brighter (e.g. for a lighter glass theme), the midpoint constraint has to be honored — push the asymmetry harder (smaller `brighten`, larger `darken`) rather than centering both around the cardBg.
+**Therefore:** `bgFlat` must stay clearly dark (luminance ≲ 100/255). Current values land safely:
+- `obsidian-glass` bgFlat = `#08090c` (luminance ~9). Plenty of headroom.
+- `frutiger-aero` bgFlat ≈ `#4d6b78` (luminance ~100). At the edge — keeps white winning for most wallpapers but a much lighter wallpaper could flip it.
+
+The hue-preserving compositing base (bullet 1 above) controls bgFlat's luminance via the `cardBg.rgb * 0.4` multiplier. If a future glass theme reads as black-text-on-wallpaper, the lever is that multiplier (drop it lower) or the cardBg's underlying value (darker), NOT the JPEG gradient endpoints. The gradient endpoints only affect the visual JPEG overlay, which the contrast picker doesn't see.
 
 ### `details: custom` is mostly dead code
 
