@@ -463,12 +463,26 @@ if (!fileChanged && !selectionChanged && !bgImageRegenerated) {
   process.exit(0);
 }
 
+// Detect Warp via AppleScript, NOT pgrep. macOS's pgrep matches against
+// the kernel-level p_comm — for the Warp binary at /Applications/Warp.app/
+// Contents/MacOS/stable that value isn't reliably "Warp" OR "stable" (the
+// `ps -o ucomm` display value can differ from what pgrep actually sees).
+// Both `pgrep -x Warp` and `pgrep -x stable` silently miss while Warp is
+// running, so the restart branch never fires and YAML/JPEG edits look
+// like no-ops. AppleScript's `application "X" is running` queries the
+// Process Manager directly and is the canonical macOS way to check.
+// `stable_app` is the persistent background server that re-attaches
+// windows with cached theme state; killing it forces a fresh parse.
 try {
-  execSync("pgrep -x Warp", { stdio: "ignore" });
+  execSync("osascript -e 'application \"Warp\" is running' | grep -q '^true$'", {
+    stdio: "ignore",
+    shell: "/bin/sh",
+  });
   execSync("osascript -e 'tell application \"Warp\" to quit'", {
     stdio: "ignore",
   });
   execSync("sleep 0.5", { stdio: "ignore" });
+  execSync("killall stable_app 2>/dev/null; true", { stdio: "ignore" });
   execSync("open -a Warp", { stdio: "ignore" });
   console.log("Restarted Warp to pick up new theme.");
 } catch {
