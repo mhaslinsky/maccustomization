@@ -7,7 +7,7 @@ description: Edit the Spicetify (Spotify) theme codegen. Use when touching scrip
 
 The repo ships a codegen at `scripts/build-spicetify-theme.mjs` that maps the active theme's color tokens to Spicetify's `color.ini` and writes it to `~/.config/spicetify/Themes/uber-theme/`. Wired into `npm run build` after `build:obsidian`.
 
-**This is a flat, color-only integration by design.** No `user.css` glass treatment, no `backdrop-filter`, no class-name chasing. The codegen owns the 18-slot Spicetify color palette; Spotify owns layout, typography, and chrome.
+**This is a flat, color-only integration by design.** The `user.css` we emit is narrow — color-leak overrides for surfaces `replace_colors = 1` misses, plus font-stack matching. No `backdrop-filter`, no glass surfaces, no class-name chasing for visual effects.
 
 ## How it works
 
@@ -18,10 +18,14 @@ The repo ships a codegen at `scripts/build-spicetify-theme.mjs` that maps the ac
   - `main` / `player` ← composited bg; `main-elevated` / `card` / `tab-active` derived by lighten
   - `sidebar` ← darkened bg; `shadow` ← bg darkened 45%
   - `highlight` / `highlight-elevated` ← alpha-tinted text over bg
-  - `button` / `button-active` / `notification` ← `menuBarTint` composited; `accentBright` = lighten 15%
+  - `button` / `button-active` / `notification` ← `menuBarTint` composited. Both `button` and `button-active` map to the same value (no lighten) — see "Why button-active = button" gotcha below.
   - `button-disabled` / `selected-row` / `misc` ← fgMuted variants
   - `notification-error` ← `status.bad` composited
-- `user.css` is intentionally an empty ASCII placeholder. Spicetify expects the file to exist alongside `color.ini` in a theme dir.
+- `user.css` emits four narrow override blocks (in this order):
+  1. `.encore-bright-accent-set` hover/press greens overridden to `var(--spice-button)` (Spotify hardcodes `#3be477` / `#1abc54` for `--background-highlight` / `--background-press` / `--background-elevated-*`; Spicetify's `replace_colors` CSS map doesn't cover these as of Spicetify 2.43.x).
+  2. Playback + volume progress bars: `:root { --progress-bar-color: var(--spice-button) !important }` plus direct `background-color` overrides on `.x-progressBar-foreground` / `[class*="progress-bar__indicator"]` / `[class*="progress-bar__fg"]`. Spotify ships three different progress-bar implementations in 1.2.89.x (legacy `.x-progressBar-*` covered by Spicetify CSS map PR [#3720](https://github.com/spicetify/cli/pull/3720) March 2026, Encore `.e-NNNNN-progress-bar__indicator` versioned, and a generic `progress-bar__fg`) — broad selector union covers all three.
+  3. Font-family forced to `theme.layout.fontStack` on `html, body, *`. Safe because Spotify uses SVG icons not icon fonts.
+  4. `body { zoom: 0.95 }` — optical-size correction for monospace stacks (SF Mono in obsidian-glass renders visibly wider than Spotify's default proportional font; single-knob shrink with no font-size compounding). Tuned for obsidian-glass / SF Mono; non-monospace themes may want `1.0`.
 - `config-xpui.ini` patched in place: `current_theme = uber-theme`, `color_scheme = base`. All other keys preserved.
 - ASCII-only header in `color.ini` (em-dashes in comments triggered "No section found" from Spicetify's INI parser on the 2026-05-01 attempt — kept ASCII as guard).
 
@@ -57,6 +61,10 @@ To get true desktop transparency we would need to asar-patch Spotify the way `sc
 - **`spicetify path userdata` → `~/.config/spicetify`**, but the bundled `SpicetifyDefault` theme lives at `~/.spicetify/Themes/SpicetifyDefault`. User themes go in `~/.config/spicetify/Themes/`. Don't confuse the two.
 - **Section name = `[base]`.** Single-scheme theme; `color_scheme = base` in `config-xpui.ini` matches.
 - **`spicetify apply` restarts Spotify.** Per the app-restart memory, never auto-apply.
+- **Why button-active = button (no lighten).** The obvious derivation `accentBright = lighten(accent, 0.15)` pushed obsidian-glass's pale `#B0C4DE` steel-blue into `#BCCDE3` — which reads as near-white on dark Spotify because Spotify's primary play-button uses `--background-base = var(--spice-button-active)` from `.encore-bright-accent-set`. Pinning both slots to the same value keeps the accent recognizable. If a future theme wants a state-distinct bright variant, route it through a per-theme controls knob, not a hardcoded lighten.
+- **Spotify auto-update wipes the Spicetify backup.** When Spotify updates (1.2.88 → 1.2.89, etc.), `spicetify apply` will partially work (colors.css gets new values) but xpui state diverges from the stored backup. Fix: close Spotify, run `spicetify restore backup` (restores Spotify to factory + clears stale backup), then `spicetify backup apply` (fresh backup + apply against current version). The "with = 1.2.88.x" line in `config-xpui.ini` versus the running Spotify version is the canary.
+- **`--progress-bar-color` is JS-set, never CSS-defined.** Spotify's progress-bar indicator uses `background-color: var(--progress-bar-color)` but the variable is set inline by JS (different value for rest vs hover). A `:root { --progress-bar-color: ... }` fallback works for the hover state but not at rest — that's why the user.css also has direct `background-color !important` rules on the indicator class.
+- **Encore class hash drift.** `.e-NNNNN-progress-bar` (`.e-10451-*` at the time of this writing) is auto-generated per Spotify release. The user.css uses `[class*="progress-bar__indicator"]` attribute-substring selectors to survive hash bumps without code changes. If a future bump renames the suffix (e.g., `__fill` instead of `__indicator`) the codegen needs an update — devtools inspect the running player progress bar in Spotify (via `spicetify enable-devtools` then Cmd+Opt+I) to find the new class.
 
 ## Cross-references
 
