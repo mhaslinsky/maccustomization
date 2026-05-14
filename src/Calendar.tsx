@@ -48,7 +48,7 @@ export const className = buildWidgetClassName({
   }
 
   .cal {
-    font-size: 9px;
+    font-size: 8px;
     color: rgba(236, 253, 245, 0.55);
     margin-top: 2px;
     line-height: 1.35;
