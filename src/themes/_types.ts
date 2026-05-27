@@ -91,6 +91,47 @@ export type Icons = Partial<Record<WidgetAccent, string>>;
 // and labels without a parallel schema object.
 export type Controls = {
   warp?: WarpControls;
+  thaw?: ThawControls;
+};
+
+// Per-theme knobs for the Thaw menu bar codegen (scripts/build-thaw-theme.mjs).
+// All optional; the codegen preserves Thaw's existing values for any field a
+// theme doesn't set. A theme that omits `thaw` entirely keeps the pre-2.0
+// tint-only behavior (tint + border + gradient driven, background untouched).
+export type ThawControls = {
+  /**
+   * Menu bar background material kind, mapped to Thaw's `MenuBarBackgroundKind`
+   * (none / solid / gradient / glass / adaptive). Omit to leave Thaw's
+   * background kind untouched — only tint/border/gradient are driven, which is
+   * the behavior that predates Thaw 2.0's configurable background. Set to
+   * `"glass"` to make the menu bar a glass material matching the widget cards.
+   * @description "Menu bar background"
+   */
+  background?: "none" | "solid" | "gradient" | "glass" | "adaptive";
+  /**
+   * Glass material style (`MenuBarGlassStyle`) applied to both the tint and
+   * background glass surfaces when their kind is `glass`. `regular` = standard
+   * frosted glass; `clear` = lighter/clearer. No effect unless a glass kind is
+   * in play.
+   * @description "Glass style"
+   */
+  glassStyle?: "regular" | "clear";
+  /**
+   * Tint overlay opacity, 0..1. Thaw 2.0 exposes this as a real `tintOpacity`
+   * field — Ice's old hardcoded 0.2 alpha cap in `drawTint()` is gone, so
+   * values above 0.2 now actually take effect. Omit to keep Thaw's current
+   * tint opacity.
+   * @min 0 @max 1 @step 0.05
+   * @description "Menu bar tint opacity"
+   */
+  tintOpacity?: number;
+  /**
+   * Background material opacity, 0..1. Only applied when `background` is set.
+   * Omit to default to the alpha channel of `layout.cardBg`.
+   * @min 0 @max 1 @step 0.05
+   * @description "Menu bar background opacity"
+   */
+  backgroundOpacity?: number;
 };
 
 export type WarpControls = {

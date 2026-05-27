@@ -79,6 +79,9 @@ function luaColor(r, g, b, a) {
   const f = (n) => n.toFixed(4).replace(/\.?0+$/, "") || "0";
   return `{ red = ${f(r)}, green = ${f(g)}, blue = ${f(b)}, alpha = ${f(a)} }`;
 }
+function luaString(value) {
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
 
 // 3. Strip "px" suffix from numeric layout tokens.
 function px(value) {
@@ -121,7 +124,7 @@ function emitLayout(layout) {
     `    borderWidth = ${px(layout.borderWidth)},`,
     `    cardBg = ${cssColorToLua(layout.cardBg)},`,
     // First family from the CSS font stack — HS uses a single name.
-    `    fontFamily = "${layout.fontStack.split(",")[0].trim()}",`,
+    `    fontFamily = ${luaString(layout.fontStack.split(",")[0].trim())},`,
   ].join("\n");
 }
 

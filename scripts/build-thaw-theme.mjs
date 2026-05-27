@@ -1,47 +1,60 @@
 /**
- * DEPRECATED (2026-04-24): Thaw is no longer in the main `npm run build`
- * chain — migrated to Bartender for menu bar icon management, which doesn't
- * theme the bar background. Kept intact (script + package.json entry +
- * menuBarTint theme field) so we can fall back if Bartender doesn't work
- * out. To re-enable: add `&& npm run build:thaw` back into the `build`
- * script in package.json. To run manually: `npm run build:thaw`.
+ * MANUAL-ONLY (reactivated 2026-05-27): not in the `npm run build` chain.
+ * Thaw was deprecated 2026-04-24 in favor of Bartender; Bartender 6 proved
+ * unstable on macOS 26 Tahoe, and Thaw shipped an actively-maintained 2.0
+ * beta line that fixes the Tahoe stability issues AND adds a configurable
+ * menu bar background (solid/gradient/glass). So Thaw is back — but kept
+ * manual-only while the 2.0 beta channel stabilizes. Run: `npm run
+ * build:thaw`. To re-chain: add `&& npm run build:thaw` to the `build`
+ * script in package.json.
  *
  * Codegen: src/themes/_active.ts  →  Thaw menu bar appearance preferences
  *
- * Thaw is a fork of Ice (jordanbaird/Ice) — a menu bar manager that also
- * customizes the bar's tint, border, gradient, and shape. Its appearance
- * config is packed into a single `MenuBarAppearanceConfigurationV2` key in
- * ~/Library/Preferences/com.stonerl.Thaw.plist. The value is a raw NSData
- * blob containing UTF-8 JSON with `lightModeConfiguration`,
- * `darkModeConfiguration`, and `staticConfiguration` — each with a
- * `tintColor`, `borderColor`, and `tintGradient.stops[]` where colors are
- * `{components: [r, g, b, a], colorSpace: <archived NSColor>}`.
+ * Thaw (stonerl/Thaw, a fork of jordanbaird/Ice) is a menu bar manager that
+ * also themes the bar's tint, border, gradient, glass material, and shape.
+ * Its appearance config is packed into a single
+ * `MenuBarAppearanceConfigurationV2` key in
+ * ~/Library/Preferences/com.stonerl.Thaw.plist (the bundle id is
+ * `com.stonerl.Thaw` — the fork renamed it; only the JSON sub-keys still
+ * carry the "Ice" lineage). The value is a raw NSData blob of UTF-8 JSON
+ * with `lightModeConfiguration`, `darkModeConfiguration`, and
+ * `staticConfiguration` — each a MenuBarAppearancePartialConfiguration.
  *
- * This codegen mirrors the Hammerspoon and JankyBorders codegens: bundle
- * the active theme, convert two CSS colors (primary.active, layout.cardBg)
- * into Thaw's 0..1 component arrays, and write ONLY those components back —
- * every other field (borderWidth, hasBorder, hasShadow, tintKind, the
- * colorSpace blobs, shape/margin/inset metadata) is preserved verbatim.
+ * Color encoding (Thaw/UI/Utilities/IceColor.swift): each color is
+ * `{components: [...], colorSpace: <base64 ICC profile>}`, decoded via
+ * `CGColor(colorSpace:components:)`. That call requires
+ * `components.count == colorSpace.numberOfComponents + 1`. Thaw stores
+ * tintColor/borderColor as 4-component sRGB but backgroundColor /
+ * backgroundBorderColor as 2-component GRAYSCALE. So writing a 4-component
+ * rgba array into a grayscale field while leaving its colorSpace intact
+ * makes `CGColor(...)` return nil and Thaw rejects (resets) the whole
+ * config. `writeColor()` therefore stamps the sRGB ICC blob (lifted from
+ * the config's own tintColor) onto any field it converts to rgba.
  *
- * Theme → Thaw mapping (applied to light, dark, AND static configurations):
- *   tintColor              ← menuBarTint          (dedicated, see below)
- *   borderColor            ← primary.active       (drawn at full alpha — stroked)
- *   borderWidth            ← layout.borderWidth   (mirrors widget card borders in px)
- *   tintGradient.stops[0]  ← layout.cardBg        (dark/frost "base")
- *   tintGradient.stops[1]  ← menuBarTint          ("edge" of the gradient)
+ * Theme → Thaw mapping (applied to light, dark, AND static configurations).
+ * Tint/border/gradient are always driven (parity with the pre-2.0 codegen).
+ * The background material is driven ONLY when the active theme opts in via
+ * `controls.thaw.background` — otherwise background fields are preserved:
+ *   tintColor                    ← menuBarTint
+ *   tintOpacity                  ← controls.thaw.tintOpacity   (if set; uncapped, see below)
+ *   borderColor                  ← primary.active
+ *   borderWidth                  ← layout.borderWidth
+ *   tintGradient.stops[0 / -1]   ← layout.cardBg / menuBarTint
+ *   backgroundKind               ← controls.thaw.background    (enum; gates the rest)
+ *   backgroundColor              ← layout.cardBg               (+ sRGB colorSpace swap)
+ *   backgroundOpacity            ← controls.thaw.backgroundOpacity ?? cardBg alpha
+ *   backgroundGradient.stops     ← layout.cardBg / menuBarTint
+ *   backgroundBorderColor/Width  ← primary.active / layout.borderWidth
+ *   background/tintGlassStyle    ← controls.thaw.glassStyle    (if set)
  *
- * Why a dedicated `menuBarTint` field instead of reusing `primary.active`:
- * Ice hardcodes the main menu bar tint to 20% alpha in `drawTint()`:
- *
- *   case .solid:
- *       if let tintColor = NSColor(cgColor: configuration.tintColor)?
- *           .withAlphaComponent(0.2) { … }
- *
- * Translucent primary accents (like liquid-glass's white rgba(255,255,255,
- * 0.72)) become invisible at 0.2 alpha. `menuBarTint` is a saturated,
- * full-alpha color chosen per theme that actually reads as the theme on
- * the main bar. The border (drawn at the configured alpha, not 0.2) still
- * tracks `primary.active` so window borders and menu bar border match.
+ * On the `menuBarTint` field and Ice's old 0.2 cap: Ice hardcoded the main
+ * bar tint to 20% alpha in `drawTint()` (`.withAlphaComponent(0.2)`), so a
+ * dedicated saturated full-alpha `menuBarTint` was needed to stay visible.
+ * Thaw 2.0 exposes `tintOpacity` as a real field — the cap is gone — but
+ * `menuBarTint` is retained: Warp also consumes it for the terminal accent,
+ * and it remains a sensible "bar accent" distinct from translucent
+ * `primary.active`. Opacity is now controlled separately via
+ * `controls.thaw.tintOpacity`.
  *
  * Runtime concerns:
  * - Thaw is a Swift app that likely uses @AppStorage / Combine for its
@@ -166,29 +179,101 @@ const borderComponents = round(cssColorToComponents(theme.primary.active));
 const cardComponents = round(cssColorToComponents(theme.layout.cardBg));
 const derivedBorderWidth = pxToNumber(theme.layout.borderWidth);
 
-// Mutate color components in-place. Every other field (colorSpace, tintKind,
-// hasBorder, hasShadow, gradient locations) is preserved verbatim — we only
-// overwrite the numeric component arrays + borderWidth. Pulled up here so it
-// can be reused by both the skip-if-unchanged preflight and the main write
-// path below.
+// Thaw enum mappings (mirror the Swift source: MenuBarBackgroundKind,
+// MenuBarGlassStyle). tintKind shares MenuBarBackgroundKind's layout.
+const BG_KIND = { none: 0, solid: 1, gradient: 2, glass: 3, adaptive: 4 };
+const GLASS_STYLE = { regular: 0, clear: 1 };
+
+// Read the optional per-theme Thaw knobs. A theme with no `controls.thaw`
+// keeps the pre-2.0 behavior: tint/border/gradient driven, background left
+// alone.
+const thawControls = theme.controls?.thaw ?? {};
+
+let bgKind = null;
+if (thawControls.background != null) {
+  bgKind = BG_KIND[thawControls.background];
+  if (bgKind == null) {
+    console.error(
+      `Error: controls.thaw.background = ${JSON.stringify(thawControls.background)} is not a valid MenuBarBackgroundKind (${Object.keys(BG_KIND).join(", ")}).`
+    );
+    process.exit(1);
+  }
+}
+
+let glassStyle = null;
+if (thawControls.glassStyle != null) {
+  glassStyle = GLASS_STYLE[thawControls.glassStyle];
+  if (glassStyle == null) {
+    console.error(
+      `Error: controls.thaw.glassStyle = ${JSON.stringify(thawControls.glassStyle)} is not a valid MenuBarGlassStyle (${Object.keys(GLASS_STYLE).join(", ")}).`
+    );
+    process.exit(1);
+  }
+}
+
+const tintOpacity =
+  typeof thawControls.tintOpacity === "number" ? thawControls.tintOpacity : null;
+// Background opacity defaults to the cardBg alpha so the bar matches the
+// widget card density. Only used when a background kind is set.
+const bgOpacity =
+  typeof thawControls.backgroundOpacity === "number"
+    ? thawControls.backgroundOpacity
+    : (cardComponents[3] ?? null);
+
+// Write [r,g,b,a] into a color object AND stamp the sRGB ICC profile onto it.
+// Critical: Thaw's grayscale-default fields (backgroundColor,
+// backgroundBorderColor) carry a 1-component colorSpace; writing 4 components
+// without swapping the profile makes Thaw's CGColor decode return nil and
+// reject the entire config. `srgb` is lifted from the config's own tintColor
+// (always 4-component sRGB), so the count matches.
+function writeColor(colorObj, components, srgb) {
+  if (!colorObj?.components) return;
+  colorObj.components = components;
+  if (srgb && components.length === 4) colorObj.colorSpace = srgb;
+}
+
+// Mutate the partial configuration in-place. Tint/border/gradient are always
+// driven; the background material block only runs when the theme opted into a
+// background kind. Structural fields (shape, margins, inset) are untouched.
+// Shared by the skip-if-unchanged preflight and the main write path.
 function applyTheme(c) {
-  if (c.tintColor?.components) {
-    c.tintColor.components = tintComponents;
+  const srgb = c.tintColor?.colorSpace; // 4-component sRGB ICC blob
+
+  // --- Tint overlay ---
+  writeColor(c.tintColor, tintComponents, srgb);
+  if (tintOpacity != null) c.tintOpacity = tintOpacity;
+
+  // --- Border (stroked at the configured alpha, not the tint cap) ---
+  writeColor(c.borderColor, borderComponents, srgb);
+  if (typeof c.borderWidth === "number") c.borderWidth = derivedBorderWidth;
+
+  // --- Tint gradient: cardBg base → menuBarTint edge ---
+  const tg = c.tintGradient?.stops;
+  if (Array.isArray(tg) && tg.length >= 2) {
+    writeColor(tg[0]?.color, cardComponents, srgb);
+    writeColor(tg[tg.length - 1]?.color, tintComponents, srgb);
   }
-  if (c.borderColor?.components) {
-    c.borderColor.components = borderComponents;
-  }
-  if (typeof c.borderWidth === "number") {
-    c.borderWidth = derivedBorderWidth;
-  }
-  const stops = c.tintGradient?.stops;
-  if (Array.isArray(stops) && stops.length >= 2) {
-    if (stops[0]?.color?.components) {
-      stops[0].color.components = cardComponents;
+
+  // --- Background material (Thaw 2.0; opt-in via controls.thaw.background) ---
+  if (bgKind != null) {
+    c.backgroundKind = bgKind;
+    writeColor(c.backgroundColor, cardComponents, srgb);
+    if (bgOpacity != null) c.backgroundOpacity = bgOpacity;
+    writeColor(c.backgroundBorderColor, borderComponents, srgb);
+    if (typeof c.backgroundBorderWidth === "number") {
+      c.backgroundBorderWidth = derivedBorderWidth;
     }
-    if (stops[stops.length - 1]?.color?.components) {
-      stops[stops.length - 1].color.components = tintComponents;
+    const bg = c.backgroundGradient?.stops;
+    if (Array.isArray(bg) && bg.length >= 2) {
+      writeColor(bg[0]?.color, cardComponents, srgb);
+      writeColor(bg[bg.length - 1]?.color, tintComponents, srgb);
     }
+  }
+
+  // --- Glass style (applies to both glass surfaces; harmless if not glass) ---
+  if (glassStyle != null) {
+    c.backgroundGlassStyle = glassStyle;
+    c.tintGlassStyle = glassStyle;
   }
 }
 
@@ -329,8 +414,14 @@ const tintFmt = fmtRgba(tintComponents);
 const borderFmt = fmtRgba(borderComponents);
 const cardFmt = fmtRgba(cardComponents);
 
+const bgKindName =
+  Object.keys(BG_KIND).find((k) => BG_KIND[k] === bgKind) ?? null;
+const bgFmt =
+  bgKind != null
+    ? `, background: ${bgKindName}${glassStyle != null ? ` (${Object.keys(GLASS_STYLE).find((k) => GLASS_STYLE[k] === glassStyle)})` : ""} ${cardFmt} @ ${bgOpacity}`
+    : "";
 console.log(
-  `Updated Thaw menu bar theme  (tint: ${tintFmt}, border: ${borderFmt} @ ${derivedBorderWidth}px, gradient base: ${cardFmt})`
+  `Updated Thaw menu bar theme  (tint: ${tintFmt}${tintOpacity != null ? ` @ ${tintOpacity}` : ""}, border: ${borderFmt} @ ${derivedBorderWidth}px, gradient base: ${cardFmt}${bgFmt})`
 );
 if (thawWasRunning) {
   console.log("Restarted Thaw to pick up new config.");

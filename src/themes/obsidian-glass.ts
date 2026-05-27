@@ -15,9 +15,21 @@ import type { AccentSpec, Controls, Icons, Layout, Primary, Status, WidgetAccent
 // surface across all glass themes — every slider is always populated.
 export const controls: Controls = {
   warp: {
-    bgImageOpacity: 20,
-    noiseAlphaMax: 140,
-    noiseDarkProb: 0.5,
+    bgImageOpacity: 100,
+    noiseAlphaMax: 255,
+    noiseDarkProb: 1,
+  },
+  // Thaw 2.0 menu bar: a glass material bar to match the smoked-obsidian
+  // widget cards. `regular` glass (not `clear`) keeps the dense, matte read.
+  // tintOpacity 0.35 — higher than Ice's dead 0.2 cap — gives the steel-blue
+  // menuBarTint enough presence over the glass without coloring it like a
+  // toy. backgroundOpacity tracks the card's 0.62 alpha so bar and widgets
+  // sit at the same density on the wallpaper.
+  thaw: {
+    background: "glass",
+    glassStyle: "regular",
+    tintOpacity: 0.35,
+    backgroundOpacity: 0.62,
   },
 };
 
