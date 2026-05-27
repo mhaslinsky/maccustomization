@@ -1,63 +1,70 @@
 ---
 name: thaw-menu-bar
-description: Reference for the deprecated Thaw (Ice fork) menu bar codegen. Use when re-enabling Thaw (appending build:thaw back to the build chain), editing scripts/build-thaw-theme.mjs, debugging the MenuBarAppearanceConfigurationV2 plist, explaining why menuBarTint exists as its own theme field (Ice's 0.2 alpha cap), tuning Thaw's ShowOnHover / ShowOnScroll / IconRefreshInterval runtime settings, or deciding whether to roll back from Bartender. SKIP for widget, theme, or Bartender work.
+description: Reference for the Thaw (Ice fork) menu bar codegen — reactivated 2026-05-27 on Thaw 2.0 beta, manual-only (not in build chain). Use when editing scripts/build-thaw-theme.mjs, tuning controls.thaw (background kind / glassStyle / tintOpacity / backgroundOpacity), debugging the MenuBarAppearanceConfigurationV2 plist, the colorSpace-swap requirement for grayscale-default color fields, the stale-compiled-.js gotcha (run build:widgets before standalone build:thaw), the Thaw 2.0 full-appearance schema (tintKind/backgroundKind/glassStyle enums), explaining menuBarTint's role now that Ice's 0.2 tint cap is gone, tuning ShowOnHover / ShowOnScroll / IconRefreshInterval, or deciding whether to re-chain build:thaw. SKIP for widget, theme, or Bartender work that does NOT touch Thaw / menu-bar fields (note: editing controls.thaw in a theme file IS Thaw work — use this skill).
 ---
 
-# Thaw (menu bar) integration — DEPRECATED (2026-04-24)
+# Thaw (menu bar) integration — REACTIVATED (2026-05-27), manual-only
 
-**Status:** No longer chained into `npm run build`. Migrated to **Bartender** for menu bar icon management. Bartender doesn't theme the menu bar background, so the menu bar now renders stock macOS appearance.
+**Status:** Manually invokable (`npm run build:thaw`), NOT in the `npm run build` chain. History: deprecated 2026-04-24 for Bartender → Bartender 6 proved unstable on macOS 26 Tahoe (system lag, cursor hijacking, ghost clicks; Heise Feb 2026) → Thaw shipped an active 2.0 beta line (beta.12, May 2026) that fixes the Tahoe stability issues AND adds a configurable menu bar background (solid/gradient/glass) → Thaw is back. Kept manual-only while the beta channel stabilizes.
 
-The Thaw codegen, `menuBarTint` theme field, and `.thaw-config-backup.json` are kept in place so we can roll back if Bartender doesn't work out.
+## Re-chaining (optional)
 
-## Re-enabling
+Append `&& npm run build:thaw` to the `build` script in `package.json`. Left off deliberately — the 2.0 schema is on a fast-moving beta channel; running it on demand limits blast radius.
 
-Append `&& npm run build:thaw` back to the `build` script in `package.json`. Everything else (codegen, theme field, backup) is untouched.
+## Running it (IMPORTANT: build:widgets first)
 
-## Why deprecated
+`_active.ts` imports `./obsidian-glass.js` (literal `.js`), so esbuild resolves to the **compiled** `src/themes/*.js`, not the `.ts`. The full `npm run build` regenerates those `.js` via `build:widgets` first; standalone `npm run build:thaw` does NOT, so it reads a STALE theme and silently misses recent token/`controls.thaw` edits. Always:
 
-Thaw was unstable in practice (crashes / restarts). Bartender is the mature, stable option for icon management; tradeoff is losing the themed menu bar background.
+```sh
+npm run build:widgets && npm run build:thaw
+```
+
+This bit during the 2.0 rewrite: `controls.thaw` was absent from the bundle until widgets were rebuilt. Applies to every standalone codegen, but Thaw is the one you'll run by hand.
 
 ## `menuBarTint` is still a required theme field
 
-Because Warp also consumes it for the terminal accent color, AND Bartender's gradient edge uses it. Don't remove it from `_types.ts` or individual theme files even though Thaw isn't running.
+Warp consumes it for the terminal accent, and it drives Thaw's tint/gradient edge. Don't remove it from `_types.ts` or theme files.
 
 ---
 
-# Thaw codegen reference (still-functional, manually invokable)
+# Thaw codegen reference
 
-[Thaw](https://github.com/stonerl/Thaw) is a fork of [Ice](https://github.com/jordanbaird/Ice) — a menu bar manager that also themes the macOS menu bar itself (tint, border, gradient, shape, inset).
+[Thaw](https://github.com/stonerl/Thaw) is a fork of [Ice](https://github.com/jordanbaird/Ice) — a menu bar manager that themes the macOS menu bar (tint, border, gradient, glass material, shape, inset). Bundle id / defaults domain is **`com.stonerl.Thaw`** (the fork renamed it; only the JSON sub-keys retain the "Ice" lineage — the codegen was always on the Thaw domain, never `com.stonerl.Ice`).
 
 ## Files
 
-- **`scripts/build-thaw-theme.mjs`** — codegen. Bundles the active theme (same esbuild pattern as the other codegens), pulls three colors (`menuBarTint`, `primary.active`, `layout.cardBg`) and a width (`layout.borderWidth`, parsed from `"Npx"`), and surgically rewrites just those fields inside Thaw's `MenuBarAppearanceConfigurationV2` blob. Structural bits (shape, inset, archived colorSpace NSColor blobs) are preserved verbatim.
+- **`scripts/build-thaw-theme.mjs`** — codegen. Bundles the active theme, reads `menuBarTint` / `primary.active` / `layout.cardBg` / `layout.borderWidth` + optional `controls.thaw` knobs, and rewrites the color/opacity/kind fields inside Thaw's `MenuBarAppearanceConfigurationV2` blob. Structural bits (shape, margins, inset) preserved verbatim.
 - **`~/Library/Preferences/com.stonerl.Thaw.plist`** — external state.
 - **`.thaw-config-backup.json`** — gitignored; pre-codegen snapshot for rollback.
 
-## Theme → Thaw mapping
+## Theme → Thaw mapping (Thaw 2.0)
 
-Applied uniformly across `lightModeConfiguration`, `darkModeConfiguration`, and `staticConfiguration`:
+Each config is a `MenuBarAppearancePartialConfiguration`; applied uniformly across `lightModeConfiguration`, `darkModeConfiguration`, `staticConfiguration`. Tint/border/gradient always driven (pre-2.0 parity). Background material driven **only when `controls.thaw.background` is set** — otherwise background fields preserved.
 
 | Thaw field | Source |
 |---|---|
-| `tintColor.components` | `menuBarTint` |
-| `borderColor.components` | `primary.active` |
-| `borderWidth` | `layout.borderWidth` (px number) |
-| `tintGradient.stops[0].color.components` | `layout.cardBg` (gradient base) |
-| `tintGradient.stops[-1].color.components` | `menuBarTint` (gradient edge) |
+| `tintColor` | `menuBarTint` |
+| `tintOpacity` | `controls.thaw.tintOpacity` (if set) |
+| `borderColor` / `borderWidth` | `primary.active` / `layout.borderWidth` |
+| `tintGradient.stops[0 / -1]` | `layout.cardBg` / `menuBarTint` |
+| `backgroundKind` | `controls.thaw.background` enum (gates the block) |
+| `backgroundColor` | `layout.cardBg` (+ sRGB colorSpace swap) |
+| `backgroundOpacity` | `controls.thaw.backgroundOpacity` ?? cardBg alpha |
+| `backgroundGradient.stops` | `layout.cardBg` / `menuBarTint` |
+| `backgroundBorderColor` / `Width` | `primary.active` / `layout.borderWidth` |
+| `backgroundGlassStyle` / `tintGlassStyle` | `controls.thaw.glassStyle` (if set) |
 
-Preserved verbatim: `hasBorder`, `hasShadow`, `tintKind`, archived `colorSpace` NSColor blobs (~2–4KB each per color), `shapeKind`, `leftMargin` / `rightMargin`, `isInset`, `splitShapeInfo`, `fullShapeInfo`.
+Enums (from Swift source): `MenuBarTintKind` / `MenuBarBackgroundKind` = {0 none, 1 solid, 2 gradient, 3 glass, 4 adaptive}; `MenuBarGlassStyle` = {0 regular, 1 clear}.
 
-## Why `menuBarTint` is a dedicated theme field
+Preserved verbatim: `shapeKind`, `fullShapeInfo` / `splitShapeInfo` / `notchShapeInfo`, `leftMargin` / `rightMargin` / `notchMargin`, `isInset`, `isDynamic`.
 
-Ice hardcodes the main menu bar tint to **20% alpha** in `MenuBarOverlayPanel.drawTint()`:
+## colorSpace swap — the load-bearing gotcha
 
-```swift
-case .solid:
-    if let tintColor = NSColor(cgColor: configuration.tintColor)?
-         .withAlphaComponent(0.2) { … }
-```
+`IceColor`'s decoder (`Thaw/UI/Utilities/IceColor.swift`) does `CGColor(colorSpace:components:)`, which requires `components.count == colorSpace.numberOfComponents + 1`. Thaw stores `tintColor` / `borderColor` as **4-component sRGB** but `backgroundColor` / `backgroundBorderColor` as **2-component grayscale** (`[white, alpha]`, e.g. `[0, 1]`, with a ~6KB grayscale ICC blob). Writing a 4-component rgba array into a grayscale field while leaving its colorSpace makes `CGColor(...)` return nil → Thaw **rejects the entire blob and resets to defaults** (symptom: `backgroundKind` back to 0, opacities back to 0.2, despite a successful `defaults write`). `writeColor()` therefore stamps the sRGB ICC blob — lifted from the config's own `tintColor.colorSpace` (~2656 chars) — onto any field it converts to 4-component rgba. Verify a write took by reading back: `backgroundColor.colorSpace` length should flip 6012 → 2656.
 
-`.withAlphaComponent(0.2)` *replaces* the alpha channel; whatever alpha we write is ignored. For themes with a translucent primary accent (liquid-glass's white `rgba(255, 255, 255, 0.72)`), 20% alpha white is essentially invisible on non-dark wallpapers — the main bar looked untinted while the IceBar popup (different code path: averaged screen colors + full-alpha border) showed the theme fine. `menuBarTint` is a per-theme escape hatch specifying a saturated full-alpha color that stays visible at 0.2 alpha. Alpha channel is effectively ignored; RGB is what matters. `primary.active` continues to drive `borderColor` (no 0.2 cap) so the border matches JankyBorders window borders.
+## `menuBarTint` and Ice's dead 0.2 cap
+
+Ice hardcoded the main bar tint to 20% alpha in `drawTint()` (`.withAlphaComponent(0.2)`), so a saturated full-alpha `menuBarTint` was needed to stay visible. **Thaw 2.0 exposes `tintOpacity` as a real field — the cap is gone**, set opacity via `controls.thaw.tintOpacity` (values >0.2 now take effect). `menuBarTint` is retained as the bar accent color (Warp shares it; it's distinct from translucent `primary.active`).
 
 ## Config blob mechanics
 

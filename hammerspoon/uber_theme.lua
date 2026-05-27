@@ -45,6 +45,6 @@ return {
     radius = 8,
     borderWidth = 1,
     cardBg = { red = 0.0392, green = 0.0471, blue = 0.0627, alpha = 0.62 },
-    fontFamily = ""SF Mono"",
+    fontFamily = "\"SF Mono\"",
   },
 }
