@@ -104,7 +104,10 @@ def is_running(app_name: str) -> bool:
 
 def _load_genre_cache() -> dict[str, list[str]]:
     try:
-        return json.loads(GENRE_CACHE_PATH.read_text())
+        data = json.loads(GENRE_CACHE_PATH.read_text())
+        # Guard against valid-but-wrong-type JSON (null/[]/42); a non-dict
+        # would make `key in cache` / `cache[key] = ...` raise TypeError.
+        return data if isinstance(data, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
 
@@ -140,7 +143,7 @@ def _lastfm_tags(method: str, params: dict[str, str], api_key: str) -> Any:
         'autocorrect': '1', **params,
     })
     try:
-        data = fetch_json(f'{LASTFM_API}?{query}', timeout=4)
+        data = fetch_json(f'{LASTFM_API}?{query}', timeout=3)
     except Exception:
         return None
     return (data.get('toptags') or {}).get('tag') if isinstance(data, dict) else None
@@ -292,7 +295,13 @@ def main() -> None:
 
     if chosen:
         track = chosen['track']
-        track['genres'] = fetch_genres(track.get('artist') or '', track.get('title') or '', api_key)
+        # Enforce the fetch_genres "never break the payload" contract at the
+        # call site: any unexpected error degrades to no genres, never an
+        # error payload that hides the now-playing track.
+        try:
+            track['genres'] = fetch_genres(track.get('artist') or '', track.get('title') or '', api_key)
+        except Exception:
+            track['genres'] = []
         result.update(playing=True, **chosen)
 
     print(json.dumps(result))
