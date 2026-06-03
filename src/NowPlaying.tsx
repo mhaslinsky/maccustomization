@@ -54,6 +54,24 @@ export const className = buildWidgetClassName({
     margin-top: 1px;
   }
 
+  .genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .genre {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(196, 181, 253, 0.85);
+    background: rgba(167, 139, 250, 0.12);
+    border: 1px solid rgba(167, 139, 250, 0.25);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+
   .state-badge {
     font-size: 10px;
     font-weight: 400;
@@ -96,6 +114,7 @@ interface NowPlayingTrack {
   artist?: string;
   album?: string | null;
   state?: string;
+  genres?: string[] | null;
   durationMs?: number | null;
   positionMs?: number | null;
 }
@@ -147,6 +166,13 @@ export const render = ({ output, error }: RenderProps) => {
         <div className="track-title">{track.title || "Unknown"}</div>
         <div className="artist">{track.artist || "Unknown artist"}</div>
         {track.album ? <div className="album">{track.album}</div> : null}
+        {track.genres && track.genres.length ? (
+          <div className="genres">
+            {track.genres.map((g) => (
+              <span className="genre" key={g}>{g}</span>
+            ))}
+          </div>
+        ) : null}
         {controllable ? (
           <div className="controls">
             <button onClick={() => sendAction("previous", source)} title="Previous">⏮</button>

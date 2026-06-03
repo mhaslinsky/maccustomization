@@ -14,14 +14,29 @@ import json
 import pathlib
 import subprocess
 import sys
+import urllib.parse
 from typing import Any
 
-from widget_helpers import load_local_env, utc_timestamp, safe_main
+from widget_helpers import load_local_env, get_env, fetch_json, utc_timestamp, safe_main
 
 CONFIG_PATHS = [
     pathlib.Path.home() / '.config' / 'nowplaying-widget.env',
     pathlib.Path.home() / 'Library' / 'Application Support' / 'Übersicht' / 'widgets' / '.nowplaying-widget.env',
 ]
+
+# Last.fm genre lookup. Tags are a crowd folksonomy — the top tag for a track
+# is effectively its genre. We cache by artist+title on disk because genre is
+# immutable per track and the widget polls every 10s; without the cache we'd
+# re-hit Last.fm on every poll for the same song.
+GENRE_CACHE_PATH = pathlib.Path.home() / '.cache' / 'nowplaying-widget' / 'genre-cache.json'
+GENRE_CACHE_MAX = 300
+GENRE_MAX_TAGS = 5
+LASTFM_API = 'https://ws.audioscrobbler.com/2.0/'
+# Non-genre tags Last.fm users spam; drop so they never surface as "genre".
+GENRE_TAG_BLOCKLIST = {
+    'seen live', 'favorites', 'favourites', 'favorite', 'favourite',
+    'spotify', 'love', 'beautiful', 'awesome', 'good', 'sexy', 'albums i own',
+}
 
 # Player-state queries. Callers MUST pre-check `is_running(app_name)` before
 # executing these — `tell application "X"` will *launch* the app if it isn't
@@ -85,6 +100,76 @@ def is_running(app_name: str) -> bool:
         return result.returncode == 0
     except (subprocess.TimeoutExpired, OSError):
         return False
+
+
+def _load_genre_cache() -> dict[str, list[str]]:
+    try:
+        data = json.loads(GENRE_CACHE_PATH.read_text())
+        # Guard against valid-but-wrong-type JSON (null/[]/42); a non-dict
+        # would make `key in cache` / `cache[key] = ...` raise TypeError.
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_genre_cache(cache: dict[str, list[str]]) -> None:
+    # Trim oldest entries (dict preserves insertion order) if over cap.
+    if len(cache) > GENRE_CACHE_MAX:
+        cache = dict(list(cache.items())[-GENRE_CACHE_MAX:])
+    try:
+        GENRE_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        GENRE_CACHE_PATH.write_text(json.dumps(cache))
+    except OSError:
+        pass
+
+
+def _top_tags(tags: Any, limit: int) -> list[str]:
+    """Highest-count non-blocklisted tags from a Last.fm toptags list, in order."""
+    if not isinstance(tags, list):
+        return []
+    out: list[str] = []
+    for tag in tags:
+        name = (tag.get('name') or '').strip()
+        if name and name.lower() not in GENRE_TAG_BLOCKLIST:
+            out.append(name)
+            if len(out) >= limit:
+                break
+    return out
+
+
+def _lastfm_tags(method: str, params: dict[str, str], api_key: str) -> Any:
+    query = urllib.parse.urlencode({
+        'method': method, 'api_key': api_key, 'format': 'json',
+        'autocorrect': '1', **params,
+    })
+    try:
+        data = fetch_json(f'{LASTFM_API}?{query}', timeout=3)
+    except Exception:
+        return None
+    return (data.get('toptags') or {}).get('tag') if isinstance(data, dict) else None
+
+
+def fetch_genres(artist: str, title: str, api_key: str | None) -> list[str]:
+    """Genre + subgenre tags for a track via Last.fm, cached by artist+title.
+
+    Returns up to GENRE_MAX_TAGS tags (broadest first, e.g. trance →
+    progressive trance). Empty list silently on missing key, network
+    failure, or no usable tag — genres must never break the payload.
+    """
+    if not api_key or not artist or not title:
+        return []
+    key = f'{artist.lower()}|||{title.lower()}'
+    cache = _load_genre_cache()
+    if key in cache:
+        return cache[key]  # [] = known-missing, don't re-fetch
+
+    genres = _top_tags(_lastfm_tags('track.gettoptags', {'artist': artist, 'track': title}, api_key), GENRE_MAX_TAGS)
+    if not genres:
+        genres = _top_tags(_lastfm_tags('artist.gettoptags', {'artist': artist}, api_key), GENRE_MAX_TAGS)
+
+    cache[key] = genres
+    _save_genre_cache(cache)
+    return genres
 
 
 def get_spotify() -> dict[str, Any] | None:
@@ -182,8 +267,8 @@ def main() -> None:
         handle_action(action, source)
         return
 
-    # Touch config paths so env files are still discoverable in future.
-    load_local_env(CONFIG_PATHS)
+    local_env = load_local_env(CONFIG_PATHS)
+    api_key = get_env('LASTFM_API_KEY', local_env)
 
     result: dict[str, Any] = {
         'updatedAt': utc_timestamp(),
@@ -192,25 +277,32 @@ def main() -> None:
         'track': None,
     }
 
-    # Spotify first (if actively playing)
     spotify = get_spotify()
-    if spotify and spotify['track']['state'] == 'playing':
-        result.update(playing=True, **spotify)
-        print(json.dumps(result))
-        return
-
-    # Kaset (YouTube Music) — prefer over paused Spotify
     kaset = get_kaset()
-    if kaset and kaset['track']['state'] == 'playing':
-        result.update(playing=True, **kaset)
-        print(json.dumps(result))
-        return
 
-    # Neither is actively playing — show whichever has a track (Spotify paused or Kaset paused)
-    if spotify:
-        result.update(playing=True, **spotify)
+    # Priority: actively-playing Spotify → actively-playing Kaset →
+    # whichever has a track (paused Spotify preferred, then paused Kaset).
+    if spotify and spotify['track']['state'] == 'playing':
+        chosen = spotify
+    elif kaset and kaset['track']['state'] == 'playing':
+        chosen = kaset
+    elif spotify:
+        chosen = spotify
     elif kaset:
-        result.update(playing=True, **kaset)
+        chosen = kaset
+    else:
+        chosen = None
+
+    if chosen:
+        track = chosen['track']
+        # Enforce the fetch_genres "never break the payload" contract at the
+        # call site: any unexpected error degrades to no genres, never an
+        # error payload that hides the now-playing track.
+        try:
+            track['genres'] = fetch_genres(track.get('artist') or '', track.get('title') or '', api_key)
+        except Exception:
+            track['genres'] = []
+        result.update(playing=True, **chosen)
 
     print(json.dumps(result))
 
