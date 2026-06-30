@@ -1,4 +1,4 @@
-// active-theme: obsidian-glass (cd3d2dd5)
+// active-theme: obsidian-glass (d76f8508)
 import { run, React } from "uebersicht";
 import { buildWidgetClassName, layoutWidgets, status, STACK } from "./src/widget_theme.js";
 import { trackWidget } from "./src/widget_helpers.js";
@@ -56,10 +56,6 @@ export const className = buildWidgetClassName({
   .ka-switch.on .ka-knob {
     transform: translateX(18px);
   }
-
-  .ka-sub {
-    margin-top: 6px;
-  }
 `
 });
 function setDisableSleep(on) {
@@ -82,16 +78,11 @@ const KeepAwakeToggle = ({ output, error }) => {
   };
   return <div>
       <h1>Keep Awake</h1>
-      {error ? <p className="small">Error reading state.</p> : <div>
-          <div className="ka-row" onClick={toggle}>
-            <span className="ka-label">Lid-close sleep off</span>
-            <span className={on ? "ka-switch on" : "ka-switch"}>
-              <span className="ka-knob" />
-            </span>
-          </div>
-          <p className="ka-sub small">
-            {on ? "Staying awake with the lid closed" : "Sleeps normally on lid close"}
-          </p>
+      {error ? <p className="small">Error reading state.</p> : <div className="ka-row" onClick={toggle}>
+          <span className="ka-label">Lid-close sleep</span>
+          <span className={on ? "ka-switch on" : "ka-switch"}>
+            <span className="ka-knob" />
+          </span>
         </div>}
     </div>;
 };

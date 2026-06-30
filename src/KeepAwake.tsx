@@ -63,10 +63,6 @@ export const className = buildWidgetClassName({
   .ka-switch.on .ka-knob {
     transform: translateX(18px);
   }
-
-  .ka-sub {
-    margin-top: 6px;
-  }
 `,
 });
 
@@ -112,16 +108,11 @@ const KeepAwakeToggle = ({ output, error }: ToggleProps) => {
       {error ? (
         <p className="small">Error reading state.</p>
       ) : (
-        <div>
-          <div className="ka-row" onClick={toggle}>
-            <span className="ka-label">Lid-close sleep off</span>
-            <span className={on ? "ka-switch on" : "ka-switch"}>
-              <span className="ka-knob" />
-            </span>
-          </div>
-          <p className="ka-sub small">
-            {on ? "Staying awake with the lid closed" : "Sleeps normally on lid close"}
-          </p>
+        <div className="ka-row" onClick={toggle}>
+          <span className="ka-label">Lid-close sleep</span>
+          <span className={on ? "ka-switch on" : "ka-switch"}>
+            <span className="ka-knob" />
+          </span>
         </div>
       )}
     </div>
