@@ -79,7 +79,7 @@ const KeepAwakeToggle = ({ output, error }) => {
   return <div>
       <h1>Keep Awake</h1>
       {error ? <p className="small">Error reading state.</p> : <div className="ka-row" onClick={toggle}>
-          <span className="ka-label">Lid-close sleep</span>
+          <span className="ka-label">Lid-close {on ? "awake" : "sleep"}</span>
           <span className={on ? "ka-switch on" : "ka-switch"}>
             <span className="ka-knob" />
           </span>
