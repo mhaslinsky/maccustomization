@@ -104,7 +104,6 @@ const KeepAwakeToggle = ({ output, error }: ToggleProps) => {
 
   return (
     <div>
-      <h1>Keep Awake</h1>
       {error ? (
         <p className="small">Error reading state.</p>
       ) : (
