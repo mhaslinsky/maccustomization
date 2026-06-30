@@ -26,12 +26,13 @@ export const STACK = {
   weather: { top: 260, zIndex: 99998 },
   calendar: { top: 540, zIndex: 99997 },
   nowplaying: { top: 940, zIndex: 99996 },
+  keepawake: { top: 1180, zIndex: 99995 },
 } as const;
 
 // Vertical flow configuration — order, gap between widgets, and the absolute
 // top of the first (anchor) widget. Change these in one place and every
 // widget re-layouts on the next resize tick.
-const FLOW_ORDER = ["status", "weather", "calendar", "nowplaying"] as const;
+const FLOW_ORDER = ["status", "weather", "calendar", "nowplaying", "keepawake"] as const;
 const FLOW_GAP = 16;
 const FLOW_TOP = STACK.status.top;
 

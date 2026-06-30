@@ -97,5 +97,17 @@ export const accents: Record<WidgetAccent, AccentSpec> = {
     showWarn: false,
     smallExtra: "",
   },
+  keepawake: {
+    // Emerald — "stay awake / active" reads green, and stays distinct from
+    // the violet nowplaying card directly above it in the stack.
+    border: "rgba(110, 231, 183, 0.55)",
+    text: "#f5f3ff",
+    h1: "#6ee7b7",
+    h2Muted: "rgba(245, 243, 255, 0.65)",
+    smallMuted: "rgba(245, 243, 255, 0.72)",
+    h2Margin: "8px 0 4px 0",
+    showWarn: false,
+    smallExtra: "",
+  },
 };
 

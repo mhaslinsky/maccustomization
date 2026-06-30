@@ -157,4 +157,16 @@ export const accents: Record<WidgetAccent, AccentSpec> = {
     showWarn: false,
     smallExtra: "",
   },
+  keepawake: {
+    // Cool green-gray — the faintest green lift, matching the monochrome
+    // ramp while nodding at the "active / awake" semantic.
+    border: "rgba(176, 200, 188, 0.45)",
+    text: "#f1f1f3",
+    h1: "#cfdcd6",
+    h2Muted: "rgba(241, 241, 243, 0.76)",
+    smallMuted: "rgba(241, 241, 243, 0.82)",
+    h2Margin: "8px 0 4px 0",
+    showWarn: false,
+    smallExtra: "",
+  },
 };
