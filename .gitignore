@@ -7,6 +7,7 @@ Weather.jsx
 Calendar.jsx
 NowPlaying.jsx
 Clock.jsx
+KeepAwake.jsx
 
 # Dependencies
 node_modules/
