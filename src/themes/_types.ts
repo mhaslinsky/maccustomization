@@ -3,7 +3,7 @@
 // named exports). Type-check is the only thing stopping a new theme from
 // silently dropping a field — so keep these types tight.
 
-export type WidgetAccent = "status" | "weather" | "calendar" | "nowplaying";
+export type WidgetAccent = "status" | "weather" | "calendar" | "nowplaying" | "keepawake";
 
 export type AccentSpec = {
   border: string;

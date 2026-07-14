@@ -32,6 +32,13 @@ return {
       h2Muted = { red = 0.9451, green = 0.9451, blue = 0.9529, alpha = 0.76 },
       smallMuted = { red = 0.9451, green = 0.9451, blue = 0.9529, alpha = 0.82 },
     },
+    keepawake = {
+      border = { red = 0.6902, green = 0.7843, blue = 0.7373, alpha = 0.45 },
+      text = { red = 0.9451, green = 0.9451, blue = 0.9529, alpha = 1 },
+      h1 = { red = 0.8118, green = 0.8627, blue = 0.8392, alpha = 1 },
+      h2Muted = { red = 0.9451, green = 0.9451, blue = 0.9529, alpha = 0.76 },
+      smallMuted = { red = 0.9451, green = 0.9451, blue = 0.9529, alpha = 0.82 },
+    },
   },
 
   status = {

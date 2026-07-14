@@ -161,4 +161,16 @@ export const accents: Record<WidgetAccent, AccentSpec> = {
     showWarn: false,
     smallExtra: "",
   },
+  keepawake: {
+    // Aqua-mint — the green corner of the Aero palette; saturated enough to
+    // survive the dark vibrancy wash like the periwinkle above it.
+    border: "rgba(120, 200, 170, 0.60)",
+    text: "#f4f6ff",
+    h1: "#9fe6c8",
+    h2Muted: "rgba(244, 246, 255, 0.88)",
+    smallMuted: "rgba(244, 246, 255, 0.92)",
+    h2Margin: "8px 0 4px 0",
+    showWarn: false,
+    smallExtra: "",
+  },
 };

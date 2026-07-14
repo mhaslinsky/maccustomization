@@ -83,6 +83,7 @@ export const icons: Icons = {
   weather: "\uf185",
   calendar: "\uf073",
   nowplaying: "\uf001",
+  keepawake: "\uf06e",
 };
 
 // Body/muted text colors are unified across all four widgets to Catppuccin's
@@ -130,6 +131,16 @@ export const accents: Record<WidgetAccent, AccentSpec> = {
     border: "rgba(198, 160, 246, 0.6)", // Mauve
     text: TEXT,
     h1: "#c6a0f6", // Mauve
+    h2Muted: SUBTEXT1,
+    smallMuted: SUBTEXT0,
+    h2Margin: "8px 0 4px 0",
+    showWarn: false,
+    smallExtra: "",
+  },
+  keepawake: {
+    border: "rgba(166, 218, 149, 0.6)", // Green
+    text: TEXT,
+    h1: "#a6da95", // Green
     h2Muted: SUBTEXT1,
     smallMuted: SUBTEXT0,
     h2Margin: "8px 0 4px 0",

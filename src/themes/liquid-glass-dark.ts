@@ -110,4 +110,15 @@ export const accents: Record<WidgetAccent, AccentSpec> = {
     showWarn: false,
     smallExtra: "",
   },
+  keepawake: {
+    // Mint — the green "awake" accent, value-lifted to match the glass set.
+    border: "rgba(167, 243, 208, 0.55)",
+    text: "#faf9ff",
+    h1: "#a7f3d0",
+    h2Muted: "rgba(250, 249, 255, 0.76)",
+    smallMuted: "rgba(250, 249, 255, 0.82)",
+    h2Margin: "8px 0 4px 0",
+    showWarn: false,
+    smallExtra: "",
+  },
 };
