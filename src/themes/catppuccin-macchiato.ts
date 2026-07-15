@@ -83,7 +83,6 @@ export const icons: Icons = {
   weather: "\uf185",
   calendar: "\uf073",
   nowplaying: "\uf001",
-  keepawake: "\uf06e",
 };
 
 // Body/muted text colors are unified across all four widgets to Catppuccin's
