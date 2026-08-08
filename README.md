@@ -53,7 +53,7 @@ src/themes/<name>.ts                  one file per theme
 
 Every consumer reads through `src/themes/_active.ts`. `npm run theme <name>` rewrites that one re-export and reruns every codegen, so widgets, window borders, menu bar, terminal, Hammerspoon, Slack, and Obsidian all change in the same build.
 
-See `CLAUDE.md` for architecture invariants (root `.jsx` size limits, ESM-not-bundled imports, the backdrop-filter keepalive animation, cross-bundle `window`-global state).
+See `AGENTS.md` for architecture invariants (root `.jsx` size limits, ESM-not-bundled imports, the backdrop-filter keepalive animation, cross-bundle `window`-global state).
 
 ## Edit and build
 
@@ -65,7 +65,7 @@ Widget **source** lives in TypeScript under `src/`. Übersicht loads the compile
 
 Optional: **`npm run typecheck`** runs `tsc --noEmit` only.
 
-`npm run build` runs seven sister scripts in order: `build:widgets` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:slack-css` → `build:obsidian`. They're also available individually if you only need one target (handy when tuning colors; e.g., theme tweaks that only affect widgets can just run `build:widgets`). `build:slack` (the legacy 10-color sidebar string codegen — clipboard-only, manual paste) and `build:thaw` are not part of the default chain; both still exist as manual-invoke targets — see `CLAUDE.md` and the `slack-theme` / `thaw-menu-bar` skill docs for context.
+`npm run build` runs seven sister scripts in order: `build:widgets` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:slack-css` → `build:obsidian`. They're also available individually if you only need one target (handy when tuning colors; e.g., theme tweaks that only affect widgets can just run `build:widgets`). `build:slack` (the legacy 10-color sidebar string codegen — clipboard-only, manual paste) and `build:thaw` are not part of the default chain; both still exist as manual-invoke targets — see `AGENTS.md` and the `slack-theme` / `thaw-menu-bar` skill docs for context.
 
 The widget build (`scripts/build-widgets.mjs`) uses esbuild to **transpile** (not bundle) each source file — TypeScript and JSX are converted but imports are left intact. It produces:
 
@@ -81,7 +81,7 @@ Design tokens live as one TypeScript file per theme in `src/themes/`. The curren
 
 - **`npm run theme`** — lists all themes, marks the current one with `*`.
 - **`npm run theme <name>`** — switches the active theme and rebuilds everything. Widgets re-render, JankyBorders hot-reloads, Bartender quits and relaunches to pick up the new style, the Warp YAML is refreshed, the Slack CSS injection file is regenerated (live in any open Slack window if the asar patch is installed), and each registered Obsidian vault's snippet is rewritten + hot-reloaded.
-- **Add a new theme** — copy `src/themes/default.ts` to `src/themes/<name>.ts`, tweak the values (the type checker enforces shape parity), then `npm run theme <name>`. See `CLAUDE.md` for the full field reference.
+- **Add a new theme** — copy `src/themes/default.ts` to `src/themes/<name>.ts`, tweak the values (the type checker enforces shape parity), then `npm run theme <name>`. See `AGENTS.md` for the full field reference.
 
 Themes currently in the repo: **default** (cyan/amber/green/purple accents on a dark translucent card, baseline), **liquid-glass** (iOS Tahoe light frosted), **liquid-glass-dark** (Control Center smoked variant), **catppuccin-macchiato** (Catppuccin Macchiato palette with pastel Sky/Peach/Green/Mauve accents, Inter UI font, and Nerd Font glyphs in widget titles), **frutiger-aero** (2004-era Web 2.0 Gloss — sky-blue Aero glass card, glossy greens, warm sun yellows, bright and optimistic).
 
