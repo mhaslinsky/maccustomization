@@ -32,7 +32,13 @@ local PTT_BUTTON = 3
 -- The httpserver / taps are only useful if Hammerspoon is always running.
 hs.autoLaunch(true)
 
--- Shared secret in the URL path so a stray LAN device can't toggle your mic.
+-- Shared secret in the URL path so a stray LAN device can't toggle your mic by
+-- guessing. It stops guesses, not sniffing: hs.httpserver runs plain HTTP on all
+-- interfaces, so anyone who can capture traffic on the network reads the token
+-- out of the URL and can replay it. Judged acceptable for a home LAN toggling a
+-- microphone; if this ever moves to a network you don't control, it needs TLS
+-- and a bound interface, not a longer token.
+--
 -- This repo is public, so the token lives in a gitignored sibling module that
 -- returns it as a string:
 --
@@ -93,16 +99,17 @@ local function getMuteCheckbox()
   return muteCheckbox
 end
 
--- Returns true only if Discord actually took the press. performAction returns
--- the element on success and nil on failure, and it does fail in practice: a
--- stale cached element or revoked Accessibility permission both land here.
--- Reporting those as a successful toggle would make the HTTP endpoint answer
--- 200 while the mic never moved, which is the worst outcome for a remote
--- caller that cannot see the UI.
+-- Returns true only if Discord actually took the press. performAction has three
+-- outcomes, not two: the element when accepted, `false` when Discord rejects the
+-- action, and `nil` on an Accessibility error. Both failures are real here (a
+-- stale cached element, revoked Accessibility permission), so test truthiness
+-- rather than comparing against nil, which would score a rejection as success
+-- and make the HTTP endpoint answer 200 while the mic never moved.
 local function toggleMute()
   local checkbox = getMuteCheckbox()
   if not checkbox then return false end
-  return checkbox:performAction("AXPress") ~= nil
+  local result = checkbox:performAction("AXPress")
+  return result ~= nil and result ~= false
 end
 
 -----------------------------------------------------------------------------
@@ -132,7 +139,10 @@ end
 -----------------------------------------------------------------------------
 -- 2. Thumb-button back-nav suppression (so Discord's native PTT can use it)
 -----------------------------------------------------------------------------
--- Gated with ⌃⌥⌘P so the button behaves normally outside a Discord session.
+-- ⌃⌥⌘P is a manual on/off, not an app check: while it is on the button is
+-- swallowed everywhere, including back-nav in browsers. That is deliberate, since
+-- PTT has to keep working while Discord is in the background, which is exactly
+-- where a frontmost-app check would break it. Toggle it off when done talking.
 local pttEnabled = false
 
 local pttTap = hs.eventtap.new(

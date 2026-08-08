@@ -93,6 +93,10 @@ require("discord_ptt")
 local reloadOnChange = {
   [scriptDir .. "init.lua"] = true,
   [scriptDir .. "discord_ptt.lua"] = true,
+  -- Gitignored and read once at load, so creating or rotating it needs a reload
+  -- to take effect. Without this, adding the file leaves the endpoint disabled
+  -- and rotating the token leaves the old one live.
+  [scriptDir .. "discord_ptt_secret.lua"] = true,
 }
 
 local configWatcher = hs.pathwatcher
