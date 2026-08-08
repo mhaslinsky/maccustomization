@@ -1,0 +1,25 @@
+package.json
+  s_b2d76231b4a60e::t_3dfc892d872de1 6
+AGENTS.md
+  s_b2d76231b4a60e::t_c5394f102b1034 15
+README.md
+  s_b2d76231b4a60e::t_be078c5bf179d2 68
+scripts/build-spicetify-theme.mjs
+  s_b2d76231b4a60e::t_73863b187d34b9 17-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "0f1827420d168b1bc9104c05ee36d6a85b4636fd",
+  "prompts": {},
+  "sessions": {
+    "s_b2d76231b4a60e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26c2edb2-f05c-4aea-9ca3-864b02d04837",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
