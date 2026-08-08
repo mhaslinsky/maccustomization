@@ -78,19 +78,57 @@ hs.audiodevice.watcher.start()
 hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "A", applyAudioPriority)
 
 -----------------------------------------------------------------------------
+-- Startup policy
+-----------------------------------------------------------------------------
+-- "Launch on Login". A machine-wide Hammerspoon preference, so it belongs here
+-- rather than in a feature module: importing one feature should not silently
+-- flip a global setting. The audio watcher, the event taps and the Discord
+-- http server all assume Hammerspoon is simply always running.
+hs.autoLaunch(true)
+
+-----------------------------------------------------------------------------
 -- Auto-reload on file change
 -----------------------------------------------------------------------------
--- Watches this directory so edits to init.lua trigger an immediate reload.
+-- uber_theme.lua is deliberately not watched: it is codegen output rewritten by
+-- every `npm run build`, and nothing here requires it, so watching it would
+-- reload Hammerspoon on every theme build for no effect.
+local reloadOnChange = {
+  [scriptDir .. "init.lua"] = true,
+  [scriptDir .. "discord_ptt.lua"] = true,
+  -- Gitignored and read once at load, so creating or rotating it needs a reload
+  -- to take effect. Without this, adding the file leaves the endpoint disabled
+  -- and rotating the token leaves the old one live.
+  [scriptDir .. "discord_ptt_secret.lua"] = true,
+}
+
 local configWatcher = hs.pathwatcher
   .new(scriptDir, function(changedFiles)
-    for _, f in ipairs(changedFiles) do
-      if f == scriptDir .. "init.lua" then
+    for _, changedFile in ipairs(changedFiles) do
+      if reloadOnChange[changedFile] then
         hs.reload()
         return
       end
     end
   end)
   :start()
+
+-----------------------------------------------------------------------------
+-- Local modules
+-----------------------------------------------------------------------------
+-- Discord mute over HTTP + thumb-button back-nav suppression, loaded for its
+-- side effects (hotkeys, http server, event tap). See hammerspoon/discord_ptt.lua.
+--
+-- Deliberately last, and wrapped: it binds a port and builds an event tap, both
+-- of which can fail (port already held, Accessibility permission revoked after
+-- an OS update). An uncaught error there would abort the rest of this file, so
+-- a broken optional feature would silently take out audio-device priority and,
+-- worse, the reload watcher above, leaving no way to fix it but a manual
+-- restart. Failing loudly and continuing is the right trade for a mic toggle.
+local discordLoaded, discordError = pcall(require, "discord_ptt")
+if not discordLoaded then
+  hs.alert.show("discord_ptt failed to load, see console")
+  print("discord_ptt failed to load: " .. tostring(discordError))
+end
 
 -----------------------------------------------------------------------------
 -- Boot

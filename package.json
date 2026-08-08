@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "npm run build:widgets && npm run validate:controls && npm run build:hammerspoon && npm run build:borders && npm run build:bartender && npm run build:warp && npm run build:obsidian && npm run build:spicetify",
+    "build": "npm run build:widgets && npm run validate:controls && npm run build:hammerspoon && npm run build:borders && npm run build:bartender && npm run build:warp && npm run build:obsidian",
     "build:widgets": "node scripts/build-widgets.mjs",
     "validate:controls": "node scripts/validate-controls.mjs",
     "verify": "node scripts/verify-controls.mjs",

@@ -25,6 +25,9 @@ calendar_eventkit
 # Bartender pre-codegen style backup (per-machine, written once on first Bartender codegen run)
 .bartender-config-backup.json
 
+# Hammerspoon Discord mute shared secret (per-machine; this repo is public)
+hammerspoon/discord_ptt_secret.lua
+
 # Environment files (may contain secrets)
 .claude-status-widget.env
 .weather-widget.env

@@ -98,6 +98,7 @@ const themeFiles = (await readdir(themesDir))
   .sort();
 
 const violations = [];
+const warnings = [];
 
 for (const file of themeFiles) {
   const themeName = basename(file, ".ts");
@@ -117,8 +118,10 @@ for (const file of themeFiles) {
   for (const [path, spec] of schema) {
     const value = walkPath(theme, path);
     if (value === undefined) continue;
-    const reason = check(value, spec);
-    if (reason) violations.push({ theme: themeName, path, value, ...spec, reason });
+    const problem = check(value, spec);
+    if (!problem) continue;
+    const bucket = problem.fatal ? violations : warnings;
+    bucket.push({ theme: themeName, path, value, ...spec, reason: problem.reason });
   }
 }
 
@@ -131,16 +134,27 @@ function walkPath(obj, path) {
   return cur;
 }
 
+// Returns null when the value is fine, else { reason, fatal }.
+//
+// Range and integrality are real constraints: a value outside min/max, or a
+// fraction where the consumer needs a whole number, produces a broken config.
+// A fractional `@step` is not — _types.ts documents these tags as metadata for
+// a future slider UI, so 0.05 means "the slider moves in twentieths", not "no
+// other value is legal". Gating the build on it made a deliberate value
+// (obsidian-glass tracking its card's 0.62 alpha) fail the whole chain, so
+// off-step fractions warn instead.
 function check(value, { min, max, step }) {
   if (typeof value !== "number" || Number.isNaN(value)) {
-    return `not a number (got ${typeof value})`;
+    return { reason: `not a number (got ${typeof value})`, fatal: true };
   }
-  if (value < min || value > max) return "out of range";
-  if (step != null) {
-    if (step === 1 && !Number.isInteger(value)) return "not an integer";
-    if (step !== 1) {
-      const ratio = value / step;
-      if (Math.abs(ratio - Math.round(ratio)) > 1e-9) return `not aligned to step ${step}`;
+  if (value < min || value > max) return { reason: "out of range", fatal: true };
+  if (step === 1 && !Number.isInteger(value)) {
+    return { reason: "not an integer", fatal: true };
+  }
+  if (step != null && step !== 1) {
+    const ratio = value / step;
+    if (Math.abs(ratio - Math.round(ratio)) > 1e-9) {
+      return { reason: `not aligned to slider step ${step}`, fatal: false };
     }
   }
   return null;
@@ -149,19 +163,36 @@ function check(value, { min, max, step }) {
 // ---------------------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------------------
+function describe(entry) {
+  const stepStr = entry.step != null ? `, step ${entry.step}` : "";
+  return `  ${entry.theme}: ${entry.path} = ${entry.value}: ${entry.reason} (expected ${entry.min}-${entry.max}${stepStr})`;
+}
+
+// Advisories are counted in the summary but not printed line by line unless
+// asked for. They flag deliberate values (obsidian-glass pins backgroundOpacity
+// to its card's 0.62 alpha against a 0.05 slider step), so printing the detail
+// on every build trains you to skim past this script's output, which is exactly
+// where a real violation would then get missed. The count keeps them visible.
+const verbose = process.env.VALIDATE_CONTROLS_VERBOSE === "1";
+if (verbose) {
+  for (const warning of warnings) {
+    console.warn(`validate-controls advisory:\n${describe(warning)}`);
+  }
+}
+
 if (violations.length === 0) {
+  const advisory = warnings.length
+    ? ` ${warnings.length} off-step advisory(ies)${verbose ? "" : "; VALIDATE_CONTROLS_VERBOSE=1 for detail"}.`
+    : "";
   console.log(
-    `validate-controls: OK — ${schema.size} tagged path(s) checked across ${themeFiles.length} theme(s).`
+    `validate-controls: OK, ${schema.size} tagged path(s) checked across ${themeFiles.length} theme(s).${advisory}`
   );
   process.exit(0);
 }
 
 console.error(`\nvalidate-controls: ${violations.length} violation(s)\n`);
-for (const v of violations) {
-  const stepStr = v.step != null ? `, step ${v.step}` : "";
-  console.error(
-    `  ${v.theme}: ${v.path} = ${v.value} — ${v.reason} (expected ${v.min}–${v.max}${stepStr})`
-  );
+for (const violation of violations) {
+  console.error(describe(violation));
 }
 console.error("");
 process.exit(1);
