@@ -1,0 +1,20 @@
+hammerspoon/discord_ptt.lua
+  s_b2d76231b4a60e::t_89ca77dd390db7 17-24
+  s_b2d76231b4a60e::t_5c7bcf2336ac8d 96-101,105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "cdc73d24ea154895576d2931cfb8246c57dd8840",
+  "prompts": {},
+  "sessions": {
+    "s_b2d76231b4a60e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26c2edb2-f05c-4aea-9ca3-864b02d04837",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
