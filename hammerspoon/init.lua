@@ -78,13 +78,27 @@ hs.audiodevice.watcher.start()
 hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "A", applyAudioPriority)
 
 -----------------------------------------------------------------------------
+-- Local modules
+-----------------------------------------------------------------------------
+-- Discord mute over HTTP + thumb-button back-nav suppression. Loaded for its
+-- side effects (hotkeys, http server, event tap). See hammerspoon/discord_ptt.lua.
+require("discord_ptt")
+
+-----------------------------------------------------------------------------
 -- Auto-reload on file change
 -----------------------------------------------------------------------------
--- Watches this directory so edits to init.lua trigger an immediate reload.
+-- uber_theme.lua is deliberately not watched: it is codegen output rewritten by
+-- every `npm run build`, and nothing here requires it, so watching it would
+-- reload Hammerspoon on every theme build for no effect.
+local reloadOnChange = {
+  [scriptDir .. "init.lua"] = true,
+  [scriptDir .. "discord_ptt.lua"] = true,
+}
+
 local configWatcher = hs.pathwatcher
   .new(scriptDir, function(changedFiles)
-    for _, f in ipairs(changedFiles) do
-      if f == scriptDir .. "init.lua" then
+    for _, changedFile in ipairs(changedFiles) do
+      if reloadOnChange[changedFile] then
         hs.reload()
         return
       end
