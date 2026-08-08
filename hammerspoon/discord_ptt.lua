@@ -14,8 +14,14 @@
 -- mouse thumb button, which is silent (no mute chime) and lower-latency than
 -- anything we could drive through Accessibility. The only problem is that macOS
 -- and most apps also read that thumb button as "back", so all this module does is
--- swallow the button to kill the back-nav and let Discord's native PTT hear it
--- underneath our tap.
+-- swallow the button to kill the back-nav.
+--
+-- UNVERIFIED, and the open question for this half of the file: returning true
+-- from an eventtap callback DELETES the event rather than passing it on, so
+-- Discord only still hears the button if it reads input below our CGEventTap
+-- (an IOHID-level tap would; another CGEventTap placed later would not). If PTT
+-- turns out to be dead while the toggle is on, that is this, and the fix is to
+-- stop swallowing and solve back-nav another way.
 
 local module = {}
 
@@ -87,11 +93,16 @@ local function getMuteCheckbox()
   return muteCheckbox
 end
 
+-- Returns true only if Discord actually took the press. performAction returns
+-- the element on success and nil on failure, and it does fail in practice: a
+-- stale cached element or revoked Accessibility permission both land here.
+-- Reporting those as a successful toggle would make the HTTP endpoint answer
+-- 200 while the mic never moved, which is the worst outcome for a remote
+-- caller that cannot see the UI.
 local function toggleMute()
   local checkbox = getMuteCheckbox()
   if not checkbox then return false end
-  checkbox:performAction("AXPress")
-  return true
+  return checkbox:performAction("AXPress") ~= nil
 end
 
 -----------------------------------------------------------------------------
