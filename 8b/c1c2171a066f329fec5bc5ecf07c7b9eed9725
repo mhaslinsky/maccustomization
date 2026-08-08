@@ -1,0 +1,22 @@
+scripts/validate-controls.mjs
+  s_b2d76231b4a60e::t_14637c39fc2714 101
+  s_b2d76231b4a60e::t_967cb64fba525c 166-174,177,183-184
+  s_b2d76231b4a60e::t_6e84b07efc9feb 121-124
+  s_b2d76231b4a60e::t_2d14cde06fc180 137-145,148,150-157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "8bc1c2171a066f329fec5bc5ecf07c7b9eed9725",
+  "prompts": {},
+  "sessions": {
+    "s_b2d76231b4a60e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26c2edb2-f05c-4aea-9ca3-864b02d04837",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
