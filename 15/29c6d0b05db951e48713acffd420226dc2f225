@@ -1,0 +1,26 @@
+README.md
+  s_b2d76231b4a60e::t_8437971e0ff2a2 137-147
+hammerspoon/discord_ptt.lua
+  s_b2d76231b4a60e::t_c3b31c07185a63 1-2,4-12,19-27,47-101,120-121,123,125-142,144
+  s_b2d76231b4a60e::t_669e9dedbe9837 3,13-18,28-46,102-119,122,124,143
+hammerspoon/init.lua
+  s_b2d76231b4a60e::t_14710b7f49f66d 80-86,90-97,100-101
+.gitignore
+  s_b2d76231b4a60e::t_133265e9ded668 28-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1529c6d0b05db951e48713acffd420226dc2f225",
+  "prompts": {},
+  "sessions": {
+    "s_b2d76231b4a60e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26c2edb2-f05c-4aea-9ca3-864b02d04837",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
