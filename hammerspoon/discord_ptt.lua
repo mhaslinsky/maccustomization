@@ -145,6 +145,11 @@ end
 -- where a frontmost-app check would break it. Toggle it off when done talking.
 local pttEnabled = false
 
+-- Assigned to the module table below, not just held in this local. hs.eventtap
+-- objects stop themselves from __gc, and a local that nothing references after
+-- the chunk finishes is collectable, so the tap would die at an arbitrary later
+-- GC and take back-nav suppression with it. require() keeps the returned table
+-- alive in package.loaded, which is what actually anchors it.
 local pttTap = hs.eventtap.new(
   { hs.eventtap.event.types.otherMouseDown, hs.eventtap.event.types.otherMouseUp },
   function(event)
@@ -161,5 +166,6 @@ hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "P", function()
 end)
 
 module.server = server
+module.pttTap = pttTap
 module.toggleMute = toggleMute
 return module

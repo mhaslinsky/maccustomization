@@ -8,7 +8,7 @@ Desktop widgets for [Übersicht](https://github.com/felixhageloh/uebersicht) —
 
 The repo also hosts other Mac customization code driven by the same design tokens: **Hammerspoon** config under `hammerspoon/`, **JankyBorders** config under `borders/`, a **Bartender** menu bar style codegen, a **Thaw** (Ice fork) menu bar codegen — reactivated 2026-05-27 on Thaw 2.0 beta (after Bartender 6 proved unstable on Tahoe), manual-only, drives full bar appearance incl. glass background — a **Warp** terminal theme codegen, a deprecated **Slack** CSS-injection codegen (deprecated 2026-05-12 — the asar-patch path was never reliable; the legacy `build:slack` sidebar string remains as a standalone manual option), an **Obsidian** CSS snippet codegen, and a flat-color-only **Spicetify** (Spotify) theme codegen.
 
-Design tokens live in `src/themes/`. The currently-active theme is re-exported through `src/themes/_active.ts`; every consumer (widgets, Hammerspoon, JankyBorders, Bartender, Warp, Obsidian, Spicetify) reads through that single pointer, so switching themes changes the look everywhere on the next `npm run build`.
+Design tokens live in `src/themes/`. The currently-active theme is re-exported through `src/themes/_active.ts`; every chained consumer (widgets, Hammerspoon, JankyBorders, Bartender, Warp, Obsidian) reads through that single pointer, so switching themes changes the look everywhere on the next `npm run build`. Spicetify reads the same pointer but is **not** chained (see the `npm run build` note below), so `npm run theme <name>` leaves its generated files stale until you run `npm run build:spicetify` deliberately. That is the intended state while Spotify is themed through Spicetify Marketplace.
 
 ## Commands
 
