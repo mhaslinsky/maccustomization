@@ -12,7 +12,7 @@ Design tokens live in `src/themes/`. The currently-active theme is re-exported t
 
 ## Commands
 
-- **`npm run build`** — runs `build:widgets` → `validate:controls` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:obsidian` → `build:spicetify` in sequence. (`build:thaw` is manual-only — not chained while the Thaw 2.0 beta stabilizes; run `npm run build:widgets && npm run build:thaw` so it reads fresh compiled themes. `build:slack-css` is deprecated; `build:slack` was always standalone.)
+- **`npm run build`** — runs `build:widgets` → `validate:controls` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:obsidian` in sequence. (`build:thaw` is manual-only — not chained while the Thaw 2.0 beta stabilizes; run `npm run build:widgets && npm run build:thaw` so it reads fresh compiled themes. `build:spicetify` is manual-only as of 2026-08-08: it unconditionally claims `current_theme` in `config-xpui.ini`, so chaining it silently reverted any theme installed through Spicetify Marketplace. `build:slack-css` is deprecated; `build:slack` was always standalone.)
 - **`npm run build:<target>`** — `widgets`, `hammerspoon`, `borders`, `bartender`, `warp`, `obsidian`, `spicetify`, `slack`, `slack-css`, or `thaw`. Use when iterating on one codegen.
 - **`npm run theme`** — list themes + show current.
 - **`npm run theme <name>`** — switch active theme + rebuild everything.

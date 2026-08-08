@@ -14,6 +14,13 @@
  *   - Patch ~/.config/spicetify/config-xpui.ini in place: set
  *     current_theme = uber-theme and color_scheme = base. Other keys
  *     preserved.
+ *
+ * NOT in the default `npm run build` chain (removed 2026-08-08). That patch
+ * above is unconditional, so every build reclaimed current_theme from whatever
+ * Spicetify Marketplace had set, silently reverting a theme installed through
+ * Marketplace's UI. Two theme managers cannot both own that key. Run
+ * `npm run build:spicetify` by hand if you want the generated theme back, and
+ * expect it to take current_theme away from Marketplace when you do.
  *   - ASCII-only header in color.ini (prior attempt's em-dashes triggered
  *     "No section found" errors from Spicetify's INI parser; see skill).
  *
