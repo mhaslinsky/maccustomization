@@ -168,13 +168,24 @@ function describe(entry) {
   return `  ${entry.theme}: ${entry.path} = ${entry.value}: ${entry.reason} (expected ${entry.min}-${entry.max}${stepStr})`;
 }
 
-for (const warning of warnings) {
-  console.warn(`validate-controls warning:\n${describe(warning)}`);
+// Advisories are counted in the summary but not printed line by line unless
+// asked for. They flag deliberate values (obsidian-glass pins backgroundOpacity
+// to its card's 0.62 alpha against a 0.05 slider step), so printing the detail
+// on every build trains you to skim past this script's output, which is exactly
+// where a real violation would then get missed. The count keeps them visible.
+const verbose = process.env.VALIDATE_CONTROLS_VERBOSE === "1";
+if (verbose) {
+  for (const warning of warnings) {
+    console.warn(`validate-controls advisory:\n${describe(warning)}`);
+  }
 }
 
 if (violations.length === 0) {
+  const advisory = warnings.length
+    ? ` ${warnings.length} off-step advisory(ies)${verbose ? "" : "; VALIDATE_CONTROLS_VERBOSE=1 for detail"}.`
+    : "";
   console.log(
-    `validate-controls: OK, ${schema.size} tagged path(s) checked across ${themeFiles.length} theme(s), ${warnings.length} warning(s).`
+    `validate-controls: OK, ${schema.size} tagged path(s) checked across ${themeFiles.length} theme(s).${advisory}`
   );
   process.exit(0);
 }

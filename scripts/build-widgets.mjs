@@ -66,15 +66,30 @@ const nestedInsideScannedDir =
   ourRoot !== scannedRoot &&
   ourRoot.startsWith(scannedRoot + sep);
 
-if (nestedInsideScannedDir) {
+if (nestedInsideScannedDir && process.env.ALLOW_WORKTREE_WIDGET_BUILD !== "1") {
+  // Sweep any .jsx a previous build left here before the guard existed, or that
+  // an explicit override produced. Refusing to emit while stale duplicates sit
+  // on disk would report a clean skip and leave the desktop still doubled, which
+  // is the failure this guard exists to prevent. They are gitignored build
+  // output, reproducible from the primary checkout, so removing them costs
+  // nothing.
+  const strays = (await readdir(root)).filter((name) => name.endsWith(".jsx"));
+  for (const stray of strays) {
+    await rm(join(root, stray), { force: true });
+  }
+
   console.warn(
     `build-widgets: SKIPPED. This checkout sits inside the Übersicht widgets ` +
       `folder (${scannedRoot}), which Übersicht scans recursively, so emitting ` +
       `here would render every widget twice on the desktop.\n` +
+      (strays.length
+        ? `  Removed ${strays.length} stale duplicate .jsx left here: ${strays.join(", ")}\n` +
+          "  Übersicht may still show them until you use Refresh All Widgets.\n"
+        : "") +
       "  Build widgets from the primary checkout instead.\n" +
       "  Override with ALLOW_WORKTREE_WIDGET_BUILD=1 if you know why you want this."
   );
-  if (process.env.ALLOW_WORKTREE_WIDGET_BUILD !== "1") process.exit(0);
+  process.exit(0);
 }
 
 // Discover files in src/ (flat — themes/ is handled separately below).
