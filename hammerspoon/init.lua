@@ -87,13 +87,6 @@ hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "A", applyAudioPriority)
 hs.autoLaunch(true)
 
 -----------------------------------------------------------------------------
--- Local modules
------------------------------------------------------------------------------
--- Discord mute over HTTP + thumb-button back-nav suppression. Loaded for its
--- side effects (hotkeys, http server, event tap). See hammerspoon/discord_ptt.lua.
-require("discord_ptt")
-
------------------------------------------------------------------------------
 -- Auto-reload on file change
 -----------------------------------------------------------------------------
 -- uber_theme.lua is deliberately not watched: it is codegen output rewritten by
@@ -118,6 +111,24 @@ local configWatcher = hs.pathwatcher
     end
   end)
   :start()
+
+-----------------------------------------------------------------------------
+-- Local modules
+-----------------------------------------------------------------------------
+-- Discord mute over HTTP + thumb-button back-nav suppression, loaded for its
+-- side effects (hotkeys, http server, event tap). See hammerspoon/discord_ptt.lua.
+--
+-- Deliberately last, and wrapped: it binds a port and builds an event tap, both
+-- of which can fail (port already held, Accessibility permission revoked after
+-- an OS update). An uncaught error there would abort the rest of this file, so
+-- a broken optional feature would silently take out audio-device priority and,
+-- worse, the reload watcher above, leaving no way to fix it but a manual
+-- restart. Failing loudly and continuing is the right trade for a mic toggle.
+local discordLoaded, discordError = pcall(require, "discord_ptt")
+if not discordLoaded then
+  hs.alert.show("discord_ptt failed to load, see console")
+  print("discord_ptt failed to load: " .. tostring(discordError))
+end
 
 -----------------------------------------------------------------------------
 -- Boot

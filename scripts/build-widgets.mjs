@@ -86,6 +86,8 @@ if (nestedInsideScannedDir && process.env.ALLOW_WORKTREE_WIDGET_BUILD !== "1") {
         ? `  Removed ${strays.length} stale duplicate .jsx left here: ${strays.join(", ")}\n` +
           "  Übersicht may still show them until you use Refresh All Widgets.\n"
         : "") +
+      "  The primary checkout's widgets stay live and untouched; nothing here\n" +
+      "  was supposed to render, so no widget is left stale by this skip.\n" +
       "  Build widgets from the primary checkout instead.\n" +
       "  Override with ALLOW_WORKTREE_WIDGET_BUILD=1 if you know why you want this."
   );

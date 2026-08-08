@@ -56,7 +56,7 @@ src/themes/<name>.ts                  one file per theme
 
 Only `build:widgets`, `validate:controls`, `build:hammerspoon`, `build:borders`, `build:bartender`, `build:warp` and `build:obsidian` run as part of `npm run build`. The rest are manual-invoke targets.
 
-Every consumer reads through `src/themes/_active.ts`. `npm run theme <name>` rewrites that one re-export and reruns every codegen, so widgets, window borders, menu bar, terminal, Hammerspoon, Slack, and Obsidian all change in the same build.
+Every consumer reads through `src/themes/_active.ts`. `npm run theme <name>` rewrites that one re-export and reruns the **chained** codegens, so widgets, window borders, menu bar, terminal, Hammerspoon, and Obsidian all change in the same build. The manual targets (Spicetify, Thaw, Slack) read the same pointer but do not run, so their generated output stays on whatever theme it was last built with until you invoke them by hand. For Spicetify that staleness is deliberate: running it takes `current_theme` back from Spicetify Marketplace.
 
 See `AGENTS.md` for architecture invariants (root `.jsx` size limits, ESM-not-bundled imports, the backdrop-filter keepalive animation, cross-bundle `window`-global state).
 
