@@ -1,0 +1,19 @@
+scripts/build-widgets.mjs
+  s_b2d76231b4a60e::t_71b101ea3a8f1e 26-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e6110a3301e0fbe5f46d52c77e525e04de3e6586",
+  "prompts": {},
+  "sessions": {
+    "s_b2d76231b4a60e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26c2edb2-f05c-4aea-9ca3-864b02d04837",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
