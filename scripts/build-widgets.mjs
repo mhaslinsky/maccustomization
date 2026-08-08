@@ -23,6 +23,29 @@ import { readFile, readdir, rm, writeFile } from "node:fs/promises";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
+// Refuse to emit from inside a git worktree. `~/Library/Application Support/
+// Übersicht/widgets` is a symlink to this repo, and Übersicht scans it
+// recursively, including dot-directories. So a worktree under .claude/worktrees/
+// is inside the widgets folder, and building there puts a SECOND set of .jsx
+// on the desktop: every widget rendered twice, the duplicates named
+// "-claude-worktrees-<slug>-Status-jsx". Nothing errors, the desktop just
+// silently doubles, and deleting the files does not help while any later build
+// recreates them. Observed twice on 2026-08-08.
+//
+// Not fatal, because the rest of `npm run build` (hammerspoon, borders, warp,
+// obsidian) is worktree-safe and worth running. Loud and skipped beats a
+// mystery on the desktop.
+if (root.includes("/.claude/worktrees/")) {
+  console.warn(
+    "build-widgets: SKIPPED. This is a worktree under .claude/worktrees/, which " +
+      "Übersicht scans as part of the widgets folder, so emitting here would " +
+      "render every widget twice on the desktop.\n" +
+      "  Build widgets from the primary checkout instead.\n" +
+      "  Override with ALLOW_WORKTREE_WIDGET_BUILD=1 if you know why you want this."
+  );
+  if (process.env.ALLOW_WORKTREE_WIDGET_BUILD !== "1") process.exit(0);
+}
+
 // Discover files in src/ (flat — themes/ is handled separately below).
 const srcFiles = await readdir(join(root, "src"));
 const sharedModules = srcFiles.filter(
