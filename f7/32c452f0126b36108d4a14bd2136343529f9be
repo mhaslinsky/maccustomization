@@ -1,0 +1,27 @@
+scripts/build-widgets.mjs
+  s_b2d76231b4a60e::t_4c7a069302c1f0 21-23
+  s_b2d76231b4a60e::t_b8af086451b802 27-40,43-69,71-73
+README.md
+  s_b2d76231b4a60e::t_0084b18147f3b4 25
+  s_b2d76231b4a60e::t_c0263dadd3f131 73
+  s_b2d76231b4a60e::t_ef312dd53e74f5 51-54,57
+  s_b2d76231b4a60e::t_0d8aff4a33239c 58
+hammerspoon/init.lua
+  s_b2d76231b4a60e::t_3e7a2be03d70ca 80-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "f732c452f0126b36108d4a14bd2136343529f9be",
+  "prompts": {},
+  "sessions": {
+    "s_b2d76231b4a60e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26c2edb2-f05c-4aea-9ca3-864b02d04837",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
