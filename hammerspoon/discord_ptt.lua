@@ -29,9 +29,6 @@ local PORT = 8722
 -- Mouse button number for the thumb button used as push-to-talk (probed: 3).
 local PTT_BUTTON = 3
 
--- The httpserver / taps are only useful if Hammerspoon is always running.
-hs.autoLaunch(true)
-
 -- Shared secret in the URL path so a stray LAN device can't toggle your mic by
 -- guessing. It stops guesses, not sniffing: hs.httpserver runs plain HTTP on all
 -- interfaces, so anyone who can capture traffic on the network reads the token

@@ -78,6 +78,15 @@ hs.audiodevice.watcher.start()
 hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "A", applyAudioPriority)
 
 -----------------------------------------------------------------------------
+-- Startup policy
+-----------------------------------------------------------------------------
+-- "Launch on Login". A machine-wide Hammerspoon preference, so it belongs here
+-- rather than in a feature module: importing one feature should not silently
+-- flip a global setting. The audio watcher, the event taps and the Discord
+-- http server all assume Hammerspoon is simply always running.
+hs.autoLaunch(true)
+
+-----------------------------------------------------------------------------
 -- Local modules
 -----------------------------------------------------------------------------
 -- Discord mute over HTTP + thumb-button back-nav suppression. Loaded for its

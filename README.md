@@ -22,7 +22,7 @@ The first four auto-flow as a vertical column on the left — heights are measur
 - **[Warp](https://www.warp.dev/) terminal** — writes `~/.warp/themes/uber-<theme>.yaml` (one file per theme; ANSI palette, accent, selection, cursor) and updates Warp's `defaults` so its active selection points at the new file
 - **[Slack](https://slack.com/)** — two paths, layered:
   - **Sidebar legacy theme string** (`build:slack`, standalone) — copies the 10-color theme string to your clipboard for paste into Preferences → Themes → "Paste your legacy theme colors". Quick, official, but only paints the workspace switcher rail + active highlight; nothing else.
-  - **Full CSS injection** via app.asar patch (`sudo -E node scripts/patch-slack-app.mjs` + `npm run build:slack-css`) — patches Slack.app's renderer preload to load `~/.config/slack-uber-theme/theme.css` at startup. Theme switches just regenerate the CSS file (chained into `npm run build`); a fresh patch run is only needed once after each Slack auto-update. Unsupported by Slack, requires App Management for the terminal + Slack moved to `~/Applications/`, and breaks every Slack auto-update — see `.claude/skills/slack-theme/SKILL.md` for the full caveats and recovery via the `--restore` flag
+  - **Full CSS injection** via app.asar patch (`sudo -E node scripts/patch-slack-app.mjs` + `npm run build:slack-css`) — patches Slack.app's renderer preload to load `~/.config/slack-uber-theme/theme.css` at startup. Deprecated 2026-05-12 and no longer chained into `npm run build`; the asar-patch path was never reliable. Unsupported by Slack, requires App Management for the terminal + Slack moved to `~/Applications/`, and breaks every Slack auto-update — see `.claude/skills/slack-theme/SKILL.md` for the full caveats and recovery via the `--restore` flag
 - **[Obsidian](https://obsidian.md/)** — emits a per-vault CSS snippet at `<vault>/.obsidian/snippets/uber-theme.css` and enables it in `appearance.json`. Auto-discovers vaults from Obsidian's registry (`~/Library/Application Support/obsidian/obsidian.json`) so opening a new vault picks it up on the next build; no per-vault config. Composes with whatever main theme the user has selected (Default / AnuPpuccin / Catppuccin / etc.) by overriding Obsidian's CSS variables and applying glass-surface treatment for translucent themes. Requires Settings → Appearance → "Translucent window" toggled on for the wallpaper-bleed-through to work
 - **[Thaw](https://github.com/stonerl/Thaw)** (Ice fork) — deprecated 2026-04-24 in favor of Bartender; codegen kept as a manual-invoke fallback
 
@@ -48,8 +48,13 @@ src/themes/<name>.ts                  one file per theme
                   ├─ build:obsidian    → <vault>/.obsidian/snippets/uber-theme.css
                   │                       (one snippet per registered vault;
                   │                       auto-enabled in appearance.json)
-                  └─ build:thaw        → (deprecated) Ice menu bar plist
+                  ├─ build:spicetify   → ~/.config/spicetify/Themes/uber-theme/
+                  │                       (manual-only; claims current_theme,
+                  │                       so it overrides Spicetify Marketplace)
+                  └─ build:thaw        → Thaw menu bar plist (manual-only)
 ```
+
+Only `build:widgets`, `validate:controls`, `build:hammerspoon`, `build:borders`, `build:bartender`, `build:warp` and `build:obsidian` run as part of `npm run build`. The rest are manual-invoke targets.
 
 Every consumer reads through `src/themes/_active.ts`. `npm run theme <name>` rewrites that one re-export and reruns every codegen, so widgets, window borders, menu bar, terminal, Hammerspoon, Slack, and Obsidian all change in the same build.
 
@@ -65,7 +70,7 @@ Widget **source** lives in TypeScript under `src/`. Übersicht loads the compile
 
 Optional: **`npm run typecheck`** runs `tsc --noEmit` only.
 
-`npm run build` runs seven sister scripts in order: `build:widgets` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:slack-css` → `build:obsidian`. They're also available individually if you only need one target (handy when tuning colors; e.g., theme tweaks that only affect widgets can just run `build:widgets`). `build:slack` (the legacy 10-color sidebar string codegen, clipboard-only, manual paste), `build:thaw`, and `build:spicetify` are not part of the default chain; all three still exist as manual-invoke targets. See `AGENTS.md` and the `slack-theme` / `thaw-menu-bar` / `spicetify-flat-theme` skill docs for context. `build:spicetify` left the chain on 2026-08-08 because it unconditionally claims `current_theme` in `config-xpui.ini`, which meant every build silently reverted a theme installed through Spicetify Marketplace.
+`npm run build` runs these in order: `build:widgets` → `validate:controls` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:obsidian`. They're also available individually if you only need one target (handy when tuning colors; e.g., theme tweaks that only affect widgets can just run `build:widgets`). `build:slack` (the legacy 10-color sidebar string codegen, clipboard-only, manual paste), `build:thaw`, and `build:spicetify` are not part of the default chain; all three still exist as manual-invoke targets. See `AGENTS.md` and the `slack-theme` / `thaw-menu-bar` / `spicetify-flat-theme` skill docs for context. `build:spicetify` left the chain on 2026-08-08 because it unconditionally claims `current_theme` in `config-xpui.ini`, which meant every build silently reverted a theme installed through Spicetify Marketplace.
 
 The widget build (`scripts/build-widgets.mjs`) uses esbuild to **transpile** (not bundle) each source file — TypeScript and JSX are converted but imports are left intact. It produces:
 

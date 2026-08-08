@@ -18,28 +18,59 @@
 
 import * as esbuild from "esbuild";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-import { readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { dirname, join, sep } from "node:path";
+import { homedir } from "node:os";
+import { readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
-// Refuse to emit from inside a git worktree. `~/Library/Application Support/
-// Übersicht/widgets` is a symlink to this repo, and Übersicht scans it
-// recursively, including dot-directories. So a worktree under .claude/worktrees/
-// is inside the widgets folder, and building there puts a SECOND set of .jsx
-// on the desktop: every widget rendered twice, the duplicates named
-// "-claude-worktrees-<slug>-Status-jsx". Nothing errors, the desktop just
-// silently doubles, and deleting the files does not help while any later build
-// recreates them. Observed twice on 2026-08-08.
+// Refuse to emit from a checkout NESTED INSIDE the Übersicht widgets folder.
+// That folder is a symlink to this repo and Übersicht scans it recursively,
+// including dot-directories, so a git worktree under .claude/worktrees/ lives
+// inside it. Building there puts a SECOND set of .jsx on the desktop: every
+// widget rendered twice, the duplicates named "-claude-worktrees-<slug>-Status-jsx".
+// Nothing errors, the desktop silently doubles, and deleting the files does not
+// help while any later build recreates them. Observed twice on 2026-08-08.
+//
+// Tested by resolving both paths rather than sniffing for "/.claude/worktrees/"
+// in the path string: the substring is neither necessary (a worktree placed
+// anywhere else under the repo doubles the widgets just the same) nor
+// sufficient (an unrelated checkout that happens to sit at such a path is
+// harmless and should build normally). What actually matters is whether our
+// output lands somewhere Übersicht will scan a second time.
 //
 // Not fatal, because the rest of `npm run build` (hammerspoon, borders, warp,
-// obsidian) is worktree-safe and worth running. Loud and skipped beats a
-// mystery on the desktop.
-if (root.includes("/.claude/worktrees/")) {
+// obsidian) is safe here and worth running. Loud and skipped beats a mystery
+// on the desktop.
+const widgetsDir = join(
+  homedir(),
+  "Library",
+  "Application Support",
+  "Übersicht",
+  "widgets"
+);
+async function resolved(path) {
+  try {
+    return await realpath(path);
+  } catch {
+    return null; // not installed, or not a path we can resolve
+  }
+}
+const [scannedRoot, ourRoot] = await Promise.all([
+  resolved(widgetsDir),
+  resolved(root),
+]);
+const nestedInsideScannedDir =
+  scannedRoot !== null &&
+  ourRoot !== null &&
+  ourRoot !== scannedRoot &&
+  ourRoot.startsWith(scannedRoot + sep);
+
+if (nestedInsideScannedDir) {
   console.warn(
-    "build-widgets: SKIPPED. This is a worktree under .claude/worktrees/, which " +
-      "Übersicht scans as part of the widgets folder, so emitting here would " +
-      "render every widget twice on the desktop.\n" +
+    `build-widgets: SKIPPED. This checkout sits inside the Übersicht widgets ` +
+      `folder (${scannedRoot}), which Übersicht scans recursively, so emitting ` +
+      `here would render every widget twice on the desktop.\n` +
       "  Build widgets from the primary checkout instead.\n" +
       "  Override with ALLOW_WORKTREE_WIDGET_BUILD=1 if you know why you want this."
   );
