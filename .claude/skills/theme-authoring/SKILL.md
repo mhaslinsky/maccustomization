@@ -20,6 +20,7 @@ Every "look" is one file in `src/themes/`. The currently-selected theme is whate
 Every theme exports `layout`, `status`, `primary`, `menuBarTint`, `icons`, and `accents` (keyed by `WidgetAccent` — currently `status` / `weather` / `calendar` / `nowplaying`).
 
 - **`primary`** — canonical "brand" accent consumed by cross-program tools. Fields: `active`, `inactive`, `width` (px — window-border thickness, separate from `layout.borderWidth` which is widget-card thickness). JankyBorders is the active consumer; Bartender reads `primary.active` for the menu bar border color.
+- **`layout.backdropFilterEnabled`:** optional, defaults to `true`. Set it to `false` only for a near-opaque theme that should omit both backdrop filters and the 60fps keepalive animation. Translucent glass themes require the paired filter and animation.
 - **`menuBarTint`** — dedicated saturated-full-alpha color. Thaw (when active) forces 0.2 alpha on the main bar tint; translucent primaries vanish there, so `menuBarTint` is the per-theme escape hatch. Still required even though Thaw is deprecated because Warp and Bartender also consume it.
 - **`icons`** — optional `Partial<Record<WidgetAccent, string>>` of glyphs prepended to each widget's happy-path `h1`. Leave `{}` for plain text h1s (preserves pre-icons behavior). Icons only show on the main render path; `renderError` / `renderLoading` / `renderParseError` ignore them.
 

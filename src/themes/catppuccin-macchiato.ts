@@ -39,6 +39,7 @@ export const layout: Layout = {
     "Inter, -apple-system, SF Pro Display, Helvetica Neue, \"Hack Nerd Font\", \"Hack Nerd Font Propo\", \"Symbols Nerd Font\", \"SymbolsNerdFont\", sans-serif",
   lineHeight: "1.42",
   blur: "12px",
+  backdropFilterEnabled: false,
   h1Size: "19px",
   h1LineHeight: "1.2",
   h1MarginBottom: "6px",
