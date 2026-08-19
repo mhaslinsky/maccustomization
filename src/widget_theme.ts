@@ -63,51 +63,49 @@ export function buildWidgetClassName({
   rootExtras = "",
   append = "",
 }: BuildWidgetClassNameOptions): string {
-  const a: AccentSpec = accents[accent];
-  const topVal = typeof top === "number" ? `${top}px` : top;
-  const warnRule = a.showWarn ? `  .warn { color: ${status.warn}; }\n` : "";
-  const L = layout;
+  const accentSpec: AccentSpec = accents[accent];
+  const topValue = typeof top === "number" ? `${top}px` : top;
+  const warnRule = accentSpec.showWarn ? `  .warn { color: ${status.warn}; }\n` : "";
+  const layoutSpec = layout;
 
-  // Stabilize the backdrop-filter compositing layer with an infinite,
-  // visually-imperceptible opacity animation. WebKit's compositor caches
-  // the paint layer for elements that appear "static" after first paint,
-  // which causes backdrop-filter to render once and then freeze — the
-  // user sees the blur briefly when text selection or hover forces a
-  // repaint, then it "disappears" when the stale cached layer is restored.
-  // An ever-running animation keeps the layer invalidated every frame, so
-  // WebKit continuously re-samples the backdrop through the filter. The
-  // 0.9999 opacity step is imperceptible to the eye but enough to force
-  // the layer to be treated as non-static. `.widget` in Übersicht's global
-  // stylesheet already applies `position: absolute`, so we don't override
-  // positioning here.
-  return `
-  top: ${topVal};
-  left: ${L.left};
-  width: ${L.width};
-  padding: ${L.padding};
-  box-sizing: border-box;
-  background: ${L.cardBg};
-  border: ${L.borderWidth} solid ${a.border};
-  border-radius: ${L.radius};
-  box-shadow: ${L.shadow};
-  color: ${a.text};
-  font-family: ${L.fontStack};
-  line-height: ${L.lineHeight};
-  -webkit-backdrop-filter: blur(${L.blur})${L.backdropSaturate ? ` saturate(${L.backdropSaturate})` : ""};
-  backdrop-filter: blur(${L.blur})${L.backdropSaturate ? ` saturate(${L.backdropSaturate})` : ""};
-  z-index: ${zIndex};${L.textShadow ? `\n  text-shadow: ${L.textShadow};` : ""}
+  // WebKit freezes static backdrop filters, so glass themes keep their paint
+  // layers alive. Near-opaque themes can opt out of both the filter and its
+  // continuous compositor cost.
+  const backdropStyles = layoutSpec.backdropFilterEnabled === false
+    ? ""
+    : `
+  -webkit-backdrop-filter: blur(${layoutSpec.blur})${layoutSpec.backdropSaturate ? ` saturate(${layoutSpec.backdropSaturate})` : ""};
+  backdrop-filter: blur(${layoutSpec.blur})${layoutSpec.backdropSaturate ? ` saturate(${layoutSpec.backdropSaturate})` : ""};
   animation: widget-backdrop-keepalive 2s linear infinite;
 
   @keyframes widget-backdrop-keepalive {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.9999; }
   }
+`;
+
+  // `.widget` in Übersicht's global stylesheet already applies absolute
+  // positioning, so this builder does not override it.
+  return `
+  top: ${topValue};
+  left: ${layoutSpec.left};
+  width: ${layoutSpec.width};
+  padding: ${layoutSpec.padding};
+  box-sizing: border-box;
+  background: ${layoutSpec.cardBg};
+  border: ${layoutSpec.borderWidth} solid ${accentSpec.border};
+  border-radius: ${layoutSpec.radius};
+  box-shadow: ${layoutSpec.shadow};
+  color: ${accentSpec.text};
+  font-family: ${layoutSpec.fontStack};
+  line-height: ${layoutSpec.lineHeight};
+  z-index: ${zIndex};${layoutSpec.textShadow ? `\n  text-shadow: ${layoutSpec.textShadow};` : ""}${backdropStyles}
 ${rootExtras}
   h1 {
-    margin: 0 0 ${L.h1MarginBottom} 0;
-    font-size: ${L.h1Size};
-    line-height: ${L.h1LineHeight};
-    color: ${a.h1};
+    margin: 0 0 ${layoutSpec.h1MarginBottom} 0;
+    font-size: ${layoutSpec.h1Size};
+    line-height: ${layoutSpec.h1LineHeight};
+    color: ${accentSpec.h1};
   }
 
   h1 .icon {
@@ -124,29 +122,29 @@ ${rootExtras}
   }
 
   h2 {
-    margin: ${a.h2Margin};
-    font-size: ${L.h2Size};
+    margin: ${accentSpec.h2Margin};
+    font-size: ${layoutSpec.h2Size};
     text-transform: uppercase;
-    letter-spacing: ${L.h2LetterSpacing};
-    color: ${a.h2Muted};
+    letter-spacing: ${layoutSpec.h2LetterSpacing};
+    color: ${accentSpec.h2Muted};
   }
 
   p {
-    margin: ${L.bodyMargin};
-    font-size: ${L.bodySize};
+    margin: ${layoutSpec.bodyMargin};
+    font-size: ${layoutSpec.bodySize};
   }
 
   .good { color: ${status.good}; }
 ${warnRule}  .bad { color: ${status.bad}; }
   .small {
-    font-size: ${L.smallSize};
-    line-height: ${L.smallLineHeight};
-    color: ${a.smallMuted};
-    ${a.smallExtra}
+    font-size: ${layoutSpec.smallSize};
+    line-height: ${layoutSpec.smallLineHeight};
+    color: ${accentSpec.smallMuted};
+    ${accentSpec.smallExtra}
   }
 
   .footer {
-    margin-top: ${L.footerMarginTop};
+    margin-top: ${layoutSpec.footerMarginTop};
     margin-bottom: 0;
   }
 ${append}

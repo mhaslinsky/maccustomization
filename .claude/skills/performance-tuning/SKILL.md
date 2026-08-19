@@ -33,6 +33,6 @@ External state in `~/Library/Preferences/com.stonerl.Thaw.plist`, applied via `d
 
 `layoutWidgets` runs synchronously, NOT via `requestAnimationFrame`. Übersicht's desktop-layer WebView can deprioritize or skip rAF entirely as a background window, so an rAF-gated layout silently never fires. Each ResizeObserver callback triggers a full top-down `runFlowLayout` pass (up to 4 `getBoundingClientRect` calls). Acceptable because widgets refresh on the order of seconds to minutes, not 60fps — callback density is low.
 
-## Backdrop-filter keepalive animation (60fps, every widget)
+## Backdrop-filter keepalive animation (60fps, filtered widgets only)
 
-Runs 60fps on every widget to defeat WebKit's compositor caching of the `backdrop-filter` paint layer. Potentially expensive, but removing it causes the blur to freeze after first paint. Tried `will-change: backdrop-filter` and moving the filter to a `::before` pseudo-element; neither worked. Leave it alone unless deliberately testing whether a newer WebKit has fixed the underlying bug.
+Runs at 60fps on widgets whose active theme enables backdrop filtering, defeating WebKit's compositor caching of static backdrop-filter paint layers. Removing only the animation causes the blur to freeze after first paint; `will-change: backdrop-filter` and a `::before` pseudo-element did not fix that behavior. Near-opaque themes can set `layout.backdropFilterEnabled` to `false`, which removes both the filters and their keepalive. Preserve the paired filter-plus-animation behavior for translucent glass themes.

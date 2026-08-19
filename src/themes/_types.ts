@@ -27,6 +27,8 @@ export type Layout = {
   fontStack: string;
   lineHeight: string;
   blur: string;
+  // Defaults to true. False omits both backdrop filters and their keepalive.
+  backdropFilterEnabled?: boolean;
   // Optional `saturate()` factor appended to backdrop-filter alongside
   // `blur(...)`. Boosts wallpaper saturation through the glass — the Aero
   // "deepened color through frost" look. 1.0 (or unset) = no change; values

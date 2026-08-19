@@ -11,7 +11,7 @@ These constraints are load-bearing for the Übersicht widget pipeline. Violating
 
 ## Runtime gotchas
 
-- **Backdrop-filter keepalive animation (`buildWidgetClassName`):** the `widget-backdrop-keepalive` infinite opacity animation (`50% { opacity: 0.9999; }`) is required. WebKit caches the `backdrop-filter` paint layer for "static" elements and the blur freezes after first paint. `will-change: backdrop-filter` and `::before` pseudo-elements did NOT fix this. Do not remove the animation.
+- **Backdrop-filter keepalive animation (`buildWidgetClassName`):** themes that enable backdrop filtering require the `widget-backdrop-keepalive` infinite opacity animation (`50% { opacity: 0.9999; }`). WebKit caches static backdrop-filter paint layers, and `will-change: backdrop-filter` plus `::before` pseudo-elements did not prevent the blur from freezing. A near-opaque theme may set `layout.backdropFilterEnabled` to `false`, which must omit both backdrop-filter declarations and the animation. Never disable the animation while leaving a backdrop filter active.
 - **Cross-bundle shared state must use `window` globals.** Übersicht bundles each `.jsx` widget independently via Browserify, so module-scoped `const`/`let` in shared modules is duplicated per bundle. The widget wrapper registry lives on `window.__ubWidgetWrappers` for this reason. Any new cross-widget state MUST use the same `window.__*` pattern — module-level state silently creates per-bundle islands.
 - **`layoutWidgets` is called synchronously, not via `requestAnimationFrame`.** Übersicht's desktop-layer WebView can deprioritize / skip rAF entirely as a background window, so an rAF-gated layout silently never fires. Keep layout triggers synchronous.
 
