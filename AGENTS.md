@@ -36,6 +36,7 @@ Detailed guidance lives in `.claude/rules/` (always-on constraints) and `.claude
 | Obsidian CSS snippet codegen, vault auto-discovery, glass surface treatment | skill: `obsidian-theme` |
 | Spicetify (Spotify) flat color-only codegen, `color.ini` mapping, `config-xpui.ini` patch, why no glass | skill: `spicetify-flat-theme` |
 | Refresh frequencies, layout cadence, perf rationale | skill: `performance-tuning` |
+| `aerospace/`, `scripts/dock-layout.mts`, workspace and dock-state layouts | README section "Window management" |
 | Widget build pipeline constraints (root `.jsx` small, ESM imports, backdrop-filter keepalive, cross-bundle state) | rule: `widget-build-invariants` (always loaded) |
 
 ## Configuration
