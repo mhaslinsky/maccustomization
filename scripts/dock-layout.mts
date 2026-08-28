@@ -18,10 +18,10 @@ const UNDOCKED_LAYOUT = new Map<string, string>([
   ["com.mitchellh.ghostty", "2"],
 ]);
 
-// Docked, placement is left alone. Every monitor already shows its own
-// workspace, so nothing is hidden; sweeping would instead pile every window
-// onto whichever single monitor holds workspace 1.
-const DOCKED_LAYOUT = null;
+// The workspaces the undocked layout moves apps to. Docked, those moves are
+// undone and the window returns to FALLBACK_WORKSPACE, while a window on any
+// other workspace belongs to a second monitor and is left alone.
+const UNDOCKED_PARK_WORKSPACES = new Set(UNDOCKED_LAYOUT.values());
 
 // AeroSpace reports a hidden app's window with this layout. It cannot be floated
 // or moved until the app is unhidden, so the sweep leaves it alone.
@@ -89,10 +89,18 @@ function readOpenWindows(): OpenWindow[] {
 
 // null means "leave this window's workspace alone", which is distinct from
 // "send it to the fallback workspace".
-function targetWorkspaceFor(bundleId: string, dockState: DockState): string | null {
-  const layout = dockState === "docked" ? DOCKED_LAYOUT : UNDOCKED_LAYOUT;
-  if (layout === null) return null;
-  return layout.get(bundleId) ?? FALLBACK_WORKSPACE;
+// Redocking reverses the undocked split. Left in place, Ghostty and Zen stay on
+// separate workspaces pinned to the same monitor, where only one of the two can
+// be visible at a time.
+function targetWorkspaceFor(
+  bundleId: string,
+  currentWorkspace: string,
+  dockState: DockState,
+): string | null {
+  if (dockState === "undocked") {
+    return UNDOCKED_LAYOUT.get(bundleId) ?? FALLBACK_WORKSPACE;
+  }
+  return UNDOCKED_PARK_WORKSPACES.has(currentWorkspace) ? FALLBACK_WORKSPACE : null;
 }
 
 // Re-read placement from AeroSpace instead of trusting move command exit codes,
@@ -147,7 +155,7 @@ function main(): void {
   if (isDryRun) {
     console.log(`dock-layout: ${dockState} (dry run), ${sweepable.length} window(s), ${skipped} skipped.`);
     for (const window of sweepable) {
-      const workspace = targetWorkspaceFor(window.bundleId, dockState);
+      const workspace = targetWorkspaceFor(window.bundleId, window.workspace, dockState);
       const floatNote = window.layout === "floating" ? "" : ` [${window.layout} -> floating]`;
       const placement = workspace === null ? `stays on workspace ${window.workspace}` : `-> workspace ${workspace}`;
       console.log(`  ${window.appName} ${placement}${floatNote}`);
@@ -159,11 +167,15 @@ function main(): void {
   const failures: string[] = [];
 
   for (const window of sweepable) {
-    const workspace = targetWorkspaceFor(window.bundleId, dockState);
+    const workspace = targetWorkspaceFor(window.bundleId, window.workspace, dockState);
     expected.set(window.windowId, workspace);
     try {
-      aerospace(["layout", "floating", "--window-id", window.windowId]);
-      if (workspace !== null) {
+      // Skipping the no-op keeps aerospace's "Already in the requested floating
+      // mode" chatter off stderr, so real errors stay visible.
+      if (window.layout !== "floating") {
+        aerospace(["layout", "floating", "--window-id", window.windowId]);
+      }
+      if (workspace !== null && workspace !== window.workspace) {
         aerospace(["move-node-to-workspace", "--window-id", window.windowId, workspace]);
       }
     } catch (error) {
