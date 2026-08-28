@@ -95,6 +95,7 @@ hs.autoLaunch(true)
 local reloadOnChange = {
   [scriptDir .. "init.lua"] = true,
   [scriptDir .. "discord_ptt.lua"] = true,
+  [scriptDir .. "dock_layout.lua"] = true,
   -- Gitignored and read once at load, so creating or rotating it needs a reload
   -- to take effect. Without this, adding the file leaves the endpoint disabled
   -- and rotating the token leaves the old one live.
@@ -128,6 +129,15 @@ local discordLoaded, discordError = pcall(require, "discord_ptt")
 if not discordLoaded then
   hs.alert.show("discord_ptt failed to load, see console")
   print("discord_ptt failed to load: " .. tostring(discordError))
+end
+
+-- Re-applies the AeroSpace workspace layout on dock and undock. Wrapped for the
+-- same reason as discord_ptt: it builds a screen watcher and binds a hotkey, and
+-- a failure there must not take out the reload watcher above.
+local dockLayoutLoaded, dockLayoutError = pcall(require, "dock_layout")
+if not dockLayoutLoaded then
+  hs.alert.show("dock_layout failed to load, see console")
+  print("dock_layout failed to load: " .. tostring(dockLayoutError))
 end
 
 -----------------------------------------------------------------------------

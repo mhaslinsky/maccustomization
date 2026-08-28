@@ -1,0 +1,101 @@
+# AeroSpace configuration. Symlinked to ~/.aerospace.toml so this repo stays the
+# single source of truth, matching the borders/bordersrc convention.
+#
+# AeroSpace is used here as a workspace manager, not as a tiling WM. Every window
+# floats, so windows keep the position and size macOS gives them; the only thing
+# AeroSpace adds is which workspace a window belongs to.
+#
+# Why AeroSpace rather than native Spaces: on macOS 26 every userspace API for
+# moving another app's window to a native Space silently no-ops. AeroSpace
+# sidesteps that by parking inactive windows offscreen via the Accessibility API.
+#
+# TOML scoping: every bare key below must stay ABOVE the first [table] header,
+# or it is parsed as a key of that table. on-window-detected placed after [gaps]
+# fails as "gaps.on-window-detected: Unknown key".
+
+config-version = 2
+
+start-at-login = true
+
+after-login-command = []
+after-startup-command = []
+
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+accordion-padding = 30
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto'
+
+# Leave macOS-hidden apps hidden; unhiding them resurrects windows the user
+# deliberately put away, on every workspace switch.
+automatically-unhide-macos-hidden-apps = false
+
+on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+
+# Must be explicit under config-version 2, where the default is an empty array.
+# Version 1 inferred this from the keybindings below, so omitting it here would
+# silently drop these once they were empty. Workspaces 4 and 5 exist because a
+# docked monitor gets its own workspace and needs to stay reachable.
+persistent-workspaces = ["1", "2", "3", "4", "5"]
+
+# Float every window. check-further-callbacks keeps downstream rules reachable if
+# any are added below.
+on-window-detected = [
+    { check-further-callbacks = true, run = 'layout floating' },
+]
+
+[key-mapping]
+preset = 'qwerty'
+
+[gaps]
+inner.horizontal = 0
+inner.vertical = 0
+outer.left = 0
+outer.bottom = 0
+outer.top = 0
+outer.right = 0
+
+[mode.main.binding]
+alt-1 = 'workspace 1'
+alt-2 = 'workspace 2'
+alt-3 = 'workspace 3'
+alt-4 = 'workspace 4'
+alt-5 = 'workspace 5'
+
+alt-shift-1 = 'move-node-to-workspace 1'
+alt-shift-2 = 'move-node-to-workspace 2'
+alt-shift-3 = 'move-node-to-workspace 3'
+alt-shift-4 = 'move-node-to-workspace 4'
+alt-shift-5 = 'move-node-to-workspace 5'
+
+alt-tab = 'workspace-back-and-forth'
+
+# Re-sweep every open window into the layout for the current dock state.
+#
+# Routed through a LOGIN zsh because exec-and-forget runs /bin/bash -c with a
+# minimal PATH that has no node, so the script's `env node` shebang would fail.
+# exec-and-forget also discards stdout, stderr and the exit code, so that
+# failure would be completely silent; the script notifies on its own for the
+# same reason.
+alt-shift-d = 'exec-and-forget /bin/zsh -lc "/Users/mhaslinsky/Developer/mac-customization/scripts/dock-layout.mts"'
+
+# Force the undocked layout (Zen on 3, Ghostty on 2, rest on 1) while still docked.
+alt-shift-u = 'exec-and-forget /bin/zsh -lc "/Users/mhaslinsky/Developer/mac-customization/scripts/dock-layout.mts undocked"'
+
+alt-shift-r = 'reload-config'
+
+# Pin every workspace to a monitor. Without this, reattaching a display makes
+# AeroSpace mint a NEW workspace for it rather than restoring the old one, so
+# numbers climb on every dock cycle (observed: 4 and 5 became 6 and 7 after one
+# undock/redock, taking their windows with them).
+#
+# Patterns resolve at runtime, so one block covers both states. Undocked, the
+# built-in is 'main', so 1 to 4 all collapse onto it and 5 falls through to its
+# 'main' fallback.
+[workspace-to-monitor-force-assignment]
+1 = 'main'
+2 = 'main'
+3 = 'main'
+4 = ['built-in', 'main']
+5 = ['s2725', 'main']
