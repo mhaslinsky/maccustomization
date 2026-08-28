@@ -37,7 +37,7 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 # Version 1 inferred this from the keybindings below, so omitting it here would
 # silently drop these once they were empty. Workspaces 4 and 5 exist because a
 # docked monitor gets its own workspace and needs to stay reachable.
-persistent-workspaces = ["1", "2", "3", "4", "5"]
+persistent-workspaces = ["1", "2", "3", "4", "5", "6"]
 
 # Float every window. check-further-callbacks keeps downstream rules reachable if
 # any are added below.
@@ -62,12 +62,14 @@ alt-2 = 'workspace 2'
 alt-3 = 'workspace 3'
 alt-4 = 'workspace 4'
 alt-5 = 'workspace 5'
+alt-6 = 'workspace 6'
 
 alt-shift-1 = 'move-node-to-workspace 1'
 alt-shift-2 = 'move-node-to-workspace 2'
 alt-shift-3 = 'move-node-to-workspace 3'
 alt-shift-4 = 'move-node-to-workspace 4'
 alt-shift-5 = 'move-node-to-workspace 5'
+alt-shift-6 = 'move-node-to-workspace 6'
 
 alt-tab = 'workspace-back-and-forth'
 
@@ -90,12 +92,22 @@ alt-shift-r = 'reload-config'
 # numbers climb on every dock cycle (observed: 4 and 5 became 6 and 7 after one
 # undock/redock, taking their windows with them).
 #
-# Patterns resolve at runtime, so one block covers both states. Undocked, the
-# built-in is 'main', so 1 to 4 all collapse onto it and 5 falls through to its
-# 'main' fallback.
+# Every attached monitor needs at least one assigned workspace. A monitor with
+# none makes AeroSpace mint a fresh one, which is the drift this block exists to
+# stop: numbers climb on every dock cycle and windows end up stranded on a
+# workspace with no hotkey.
+#
+# Workspaces 4, 5 and 6 therefore cover monitor SLOTS 1, 2 and 3 by left-to-right
+# position rather than by name. Naming displays only covers the ones named: a
+# Samsung Odyssey matched none of them and the drift returned. The 'main'
+# fallback handles a slot that no display occupies.
+#
+# The main monitor holds 1 through 3 plus whichever slot workspace it owns. One
+# monitor can be assigned many workspaces; it just shows one at a time.
 [workspace-to-monitor-force-assignment]
 1 = 'main'
 2 = 'main'
 3 = 'main'
-4 = ['built-in', 'main']
-5 = ['s2725', 'main']
+4 = [1, 'main']
+5 = [2, 'main']
+6 = [3, 'main']

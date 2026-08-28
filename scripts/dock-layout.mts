@@ -135,6 +135,15 @@ function findMisplaced(expected: Map<string, string | null>): string[] {
   return problems;
 }
 
+function isWorkspaceVisible(workspace: string): boolean {
+  const raw = aerospace(["list-workspaces", "--all", "--format", "%{workspace}\t%{workspace-is-visible}"]);
+  for (const line of raw.split("\n")) {
+    const [name, visible] = line.trim().split("\t");
+    if (name === workspace) return visible === "true";
+  }
+  return false;
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   const isDryRun = args.includes("--dry-run");
@@ -184,6 +193,17 @@ function main(): void {
   }
 
   const misplaced = findMisplaced(expected);
+
+  // Sweeping windows onto a hidden workspace leaves the user staring at an empty
+  // screen, so surface the one just filled.
+  const movedToFallback = [...expected.values()].some((workspace) => workspace === FALLBACK_WORKSPACE);
+  if (movedToFallback && !isWorkspaceVisible(FALLBACK_WORKSPACE)) {
+    try {
+      aerospace(["workspace", FALLBACK_WORKSPACE]);
+    } catch (error) {
+      failures.push(`focusing workspace ${FALLBACK_WORKSPACE}: ${String(error).split("\n")[0]}`);
+    }
+  }
 
   console.log(`dock-layout: ${dockState}, ${sweepable.length} window(s) swept, ${skipped} skipped.`);
   for (const failure of failures) console.error(`  command failed: ${failure}`);
