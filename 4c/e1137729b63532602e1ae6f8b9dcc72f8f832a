@@ -1,0 +1,19 @@
+scripts/adguard-proxy.mts
+  s_121f1c21ab2f22::t_ce55119eaf134e 66-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "4ce1137729b63532602e1ae6f8b9dcc72f8f832a",
+  "prompts": {},
+  "sessions": {
+    "s_121f1c21ab2f22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "05c69709-03ae-4ab4-9c77-b019e10d7dac",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
