@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 Desktop widgets for [Übersicht](https://github.com/felixhageloh/uebersicht) — five widgets (Status, Weather, Calendar, Now Playing, Clock) rendered as React JSX inside Übersicht's WebView. Status aggregates Claude / OpenAI / Gemini / GitHub / Jira status feeds into a single pill list. Most data comes from Python backend scripts; the frontend is TypeScript/TSX transpiled to JSX.
 
-The repo also hosts other Mac customization code driven by the same design tokens: **Hammerspoon** config under `hammerspoon/`, **JankyBorders** config under `borders/`, a **Bartender** menu bar style codegen, a **Thaw** (Ice fork) menu bar codegen — reactivated 2026-05-27 on Thaw 2.0 beta (after Bartender 6 proved unstable on Tahoe), manual-only, drives full bar appearance incl. glass background — a **Warp** terminal theme codegen, a deprecated **Slack** CSS-injection codegen (deprecated 2026-05-12 — the asar-patch path was never reliable; the legacy `build:slack` sidebar string remains as a standalone manual option), an **Obsidian** CSS snippet codegen, and a flat-color-only **Spicetify** (Spotify) theme codegen.
+The repo also hosts other Mac customization code driven by the same design tokens: **Hammerspoon** config under `hammerspoon/`, **JankyBorders** config under `borders/`, a **Bartender** menu bar style codegen, a **Thaw** (Ice fork) menu bar codegen (reactivated 2026-05-27 on Thaw 2.0 beta after Bartender 6 proved unstable on Tahoe; manual-only, driving full bar appearance including glass background), a **Warp** terminal theme codegen, a deprecated **Slack** CSS-injection codegen (deprecated 2026-05-12: the asar-patch path was never reliable; the legacy `build:slack` sidebar string remains as a standalone manual option), an **Obsidian** CSS snippet codegen, and a flat-color-only **Spicetify** (Spotify) theme codegen. It also hosts provisioning for the **AdGuard CLI** filtering proxy under `scripts/adguard-proxy.mts`, which is neither theme-driven nor chained into any build.
 
 Design tokens live in `src/themes/`. The currently-active theme is re-exported through `src/themes/_active.ts`; every chained consumer (widgets, Hammerspoon, JankyBorders, Bartender, Warp, Obsidian) reads through that single pointer, so switching themes changes the look everywhere on the next `npm run build`. Spicetify reads the same pointer but is **not** chained (see the `npm run build` note below), so `npm run theme <name>` leaves its generated files stale until you run `npm run build:spicetify` deliberately. That is the intended state while Spotify is themed through Spicetify Marketplace.
 
@@ -16,7 +16,8 @@ Design tokens live in `src/themes/`. The currently-active theme is re-exported t
 - **`npm run build:<target>`** — `widgets`, `hammerspoon`, `borders`, `bartender`, `warp`, `obsidian`, `spicetify`, `slack`, `slack-css`, or `thaw`. Use when iterating on one codegen.
 - **`npm run theme`** — list themes + show current.
 - **`npm run theme <name>`** — switch active theme + rebuild everything.
-- **`npm run typecheck`** — `tsc --noEmit`. No test suite; `npm test` is a placeholder.
+- **`npm run typecheck`**: `tsc --noEmit`. No test suite; `npm test` is a placeholder. Because `tsconfig.json` includes only `src/**`, nothing under `scripts/` is typechecked and `@types/node` is not installed; the `.mts` scripts run on Node's type stripping alone.
+- **`npm run adguard:check`** / **`npm run adguard:apply`**: report or reconcile the AdGuard filtering proxy setup. Not chained into `npm run build`, because unlike every other codegen here it changes live system network settings. See README "Network filtering" before touching it, particularly the note that `apply` deliberately does not restart AdGuard.
 
 ## Working in this repo
 
@@ -37,6 +38,7 @@ Detailed guidance lives in `.claude/rules/` (always-on constraints) and `.claude
 | Spicetify (Spotify) flat color-only codegen, `color.ini` mapping, `config-xpui.ini` patch, why no glass | skill: `spicetify-flat-theme` |
 | Refresh frequencies, layout cadence, perf rationale | skill: `performance-tuning` |
 | `aerospace/`, `scripts/dock-layout.mts`, workspace and dock-state layouts | README section "Window management" |
+| `scripts/adguard-proxy.mts`, HTTPS exclusions, system proxy wiring, AdGuard filter lists | README section "Network filtering" |
 | Widget build pipeline constraints (root `.jsx` small, ESM imports, backdrop-filter keepalive, cross-bundle state) | rule: `widget-build-invariants` (always loaded) |
 
 ## Configuration
