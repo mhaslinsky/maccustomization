@@ -63,6 +63,11 @@ const EXCLUSION_GROUPS: ExclusionGroup[] = [
       "api.wisprflow.ai",
     ],
   },
+  {
+    rationale:
+      "Okta Verify pins its certificates, so a re-signed chain fails the handshake and the app reports only a generic error",
+    domains: ["okta.com", "oktacdn.com"],
+  },
 ];
 
 const BLOCK_START = "# >>> mac-customization managed exclusions >>>";
