@@ -5,9 +5,12 @@ import datetime as dt
 import json
 import os
 import pathlib
+import ssl
 import traceback
 import urllib.request
 from typing import Any
+
+ADGUARD_CA = pathlib.Path.home() / 'Library/Application Support/adguard-cli/SSL/AdGuard CLI CA.cer'
 
 
 def load_local_env(config_paths: list[pathlib.Path]) -> dict[str, str]:
@@ -33,10 +36,25 @@ def get_env(name: str, local_env: dict[str, str]) -> str | None:
     return ''.join(ch for ch in value if ch.isprintable() and ch not in '\r\n\t')
 
 
+def tls_context() -> ssl.SSLContext:
+    """Return the system trust store, plus the local AdGuard CA when installed.
+
+    urllib picks up the macOS system proxy, so an AdGuard HTTPS-filtering proxy
+    re-signs every host outside its exclusion list. OpenSSL does not read the
+    login keychain that already trusts that CA, so verification fails and the
+    widget renders the SSL error as a provider outage. load_verify_locations is
+    additive, so a machine without AdGuard still gets the default roots.
+    """
+    context = ssl.create_default_context()
+    if ADGUARD_CA.exists():
+        context.load_verify_locations(cadata=ADGUARD_CA.read_bytes())
+    return context
+
+
 def fetch_text(url: str, headers: dict[str, str] | None = None, timeout: int = 20) -> str:
     """Fetch URL and return decoded text."""
     req = urllib.request.Request(url, headers=headers or {'User-Agent': 'Mozilla/5.0'})
-    with urllib.request.urlopen(req, timeout=timeout) as response:
+    with urllib.request.urlopen(req, timeout=timeout, context=tls_context()) as response:
         return response.read().decode('utf-8', errors='ignore')
 
 

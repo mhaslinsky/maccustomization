@@ -214,17 +214,19 @@ function readProxySetting(networkService: string, flag: string): Map<string, str
 
 function proxyDrift(networkService: string): string[] {
   const drift: string[] = [];
-  for (const flag of ["-getwebproxy", "-getsecurewebproxy"]) {
-    const settings = readProxySetting(networkService, flag);
-    const label = flag === "-getwebproxy" ? "HTTP proxy" : "HTTPS proxy";
-    if (settings.get("Enabled") !== "Yes") drift.push(`${label} is disabled`);
-    if (settings.get("Server") !== PROXY_HOST) {
-      drift.push(`${label} server is ${settings.get("Server")}, expected ${PROXY_HOST}`);
-    }
-    if (settings.get("Port") !== PROXY_PORT) {
-      drift.push(`${label} port is ${settings.get("Port")}, expected ${PROXY_PORT}`);
-    }
+
+  const secure = readProxySetting(networkService, "-getsecurewebproxy");
+  if (secure.get("Enabled") !== "Yes") drift.push("HTTPS proxy is disabled");
+  if (secure.get("Server") !== PROXY_HOST) {
+    drift.push(`HTTPS proxy server is ${secure.get("Server")}, expected ${PROXY_HOST}`);
   }
+  if (secure.get("Port") !== PROXY_PORT) {
+    drift.push(`HTTPS proxy port is ${secure.get("Port")}, expected ${PROXY_PORT}`);
+  }
+
+  // Must stay off; applyProxy carries the reason.
+  const plain = readProxySetting(networkService, "-getwebproxy");
+  if (plain.get("Enabled") !== "No") drift.push("HTTP proxy is enabled, expected disabled");
 
   const currentBypass = run(NETWORKSETUP, ["-getproxybypassdomains", networkService])
     .split("\n")
@@ -284,9 +286,12 @@ function applyExclusions(currentText: string, dryRun: boolean): boolean {
   return true;
 }
 
+// Only the HTTPS proxy is wired. A client reading the system proxy straight
+// from SCDynamicStore ignores the bypass list below, so enabling the plain-HTTP
+// proxy routes the codex-lb loopback bridge through AdGuard, hitting its 502 page.
 function applyProxy(networkService: string, dryRun: boolean): void {
   const commands: string[][] = [
-    ["-setwebproxy", networkService, PROXY_HOST, PROXY_PORT],
+    ["-setwebproxystate", networkService, "off"],
     ["-setsecurewebproxy", networkService, PROXY_HOST, PROXY_PORT],
     ["-setproxybypassdomains", networkService, ...BYPASS_ENTRIES],
   ];
@@ -297,7 +302,9 @@ function applyProxy(networkService: string, dryRun: boolean): void {
     }
     run(NETWORKSETUP, args);
   }
-  if (!dryRun) console.log(`proxy: ${networkService} pointed at ${PROXY_HOST}:${PROXY_PORT}`);
+  if (!dryRun) {
+    console.log(`proxy: ${networkService} HTTPS pointed at ${PROXY_HOST}:${PROXY_PORT}, HTTP off`);
+  }
 }
 
 function main(): number {
