@@ -44,10 +44,16 @@ def tls_context() -> ssl.SSLContext:
     login keychain that already trusts that CA, so verification fails and the
     widget renders the SSL error as a provider outage. load_verify_locations is
     additive, so a machine without AdGuard still gets the default roots.
+
+    Python 3.13 turned VERIFY_X509_STRICT on by default. Because AdGuard's
+    generated chain omits the Authority Key Identifier required by strict mode,
+    the flag is cleared only on the path where that CA is in use. Chain trust
+    and hostname checking stay on; only the RFC 5280 hygiene checks relax.
     """
     context = ssl.create_default_context()
     if ADGUARD_CA.exists():
         context.load_verify_locations(cadata=ADGUARD_CA.read_bytes())
+        context.verify_flags &= ~ssl.VERIFY_X509_STRICT
     return context
 
 
