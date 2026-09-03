@@ -1,0 +1,29 @@
+package.json
+  s_d74e89a1f139a6::t_54ca235d3f48ba 10-11
+AGENTS.md
+  s_d74e89a1f139a6::t_c7410ed08bbb1b 9,19
+  s_d74e89a1f139a6::t_ab59aa9b150af6 20
+  s_d74e89a1f139a6::t_37e3bd2e8d5cb3 41
+scripts/adguard-proxy.mts
+  s_d74e89a1f139a6::t_3404ce9558b48c 1-5,7,12-158,162-305,307-366
+  s_d74e89a1f139a6::t_7cc606eb921109 6,8-11,159-161,306
+README.md
+  s_d74e89a1f139a6::t_b61a06684a91f7 39-42,45-47,49
+  s_d74e89a1f139a6::t_c7410ed08bbb1b 43-44,48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "223a89924053fae3306394977720edbbd8eb4920",
+  "prompts": {},
+  "sessions": {
+    "s_d74e89a1f139a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "80054ebb-a9d4-40ca-ab06-2588be57b485",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
