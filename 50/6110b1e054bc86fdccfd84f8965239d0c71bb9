@@ -1,0 +1,21 @@
+README.md
+  s_78f6b680317b51::t_80936bc8c9b8b9 46,48
+scripts/adguard-proxy.mts
+  s_78f6b680317b51::t_5a157f219dbc7b 38-40,43,370-372
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "506110b1e054bc86fdccfd84f8965239d0c71bb9",
+  "prompts": {},
+  "sessions": {
+    "s_78f6b680317b51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6241a3c0-4bb0-489b-be6d-609f40e5815c",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
