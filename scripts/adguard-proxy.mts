@@ -35,9 +35,12 @@ interface ExclusionGroup {
 
 const EXCLUSION_GROUPS: ExclusionGroup[] = [
   {
+    // auth.openai.com is the OAuth token refresh host. Filtering it breaks every
+    // refresh, dropping accounts from the pool and surfacing as
+    // "No available accounts" instead of a certificate error (2026-09-10).
     rationale:
       "codex-lb upstream; Docker forwards the system proxy and the container does not trust the AdGuard CA",
-    domains: ["chatgpt.com", "api.openai.com"],
+    domains: ["chatgpt.com", "api.openai.com", "auth.openai.com"],
   },
   {
     rationale:
@@ -364,7 +367,9 @@ function main(): number {
     // Deliberately not restarting. AdGuard reloads exclusions on restart, but a
     // restart drops the proxy path out from under anything already using it,
     // and has twice knocked the codex-lb container offline mid-session.
-    console.log("\nExclusion changes need `adguard-cli restart` to take effect.");
+    console.log("\nExclusion changes need a restart to take effect:");
+    console.log("  launchctl kickstart -k gui/$(id -u)/com.adguard.cli");
+    console.log('`adguard-cli restart` prints "not running" and exits 0 against the launchd instance.');
     console.log("Restart deliberately, when no long-running client is mid-request.");
   }
   return 0;
