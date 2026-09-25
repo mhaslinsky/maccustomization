@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repository.
 
 ## What this is
 
-Desktop widgets for [Übersicht](https://github.com/felixhageloh/uebersicht) — five widgets (Status, Weather, Calendar, Now Playing, Clock) rendered as React JSX inside Übersicht's WebView. Status aggregates Claude / OpenAI / Gemini / GitHub / Jira status feeds into a single pill list. Most data comes from Python backend scripts; the frontend is TypeScript/TSX transpiled to JSX.
+Desktop widgets for [Übersicht](https://github.com/felixhageloh/uebersicht): five widgets (Status, Weather, Calendar, Now Playing, Clock) rendered as React JSX inside Übersicht's WebView. Status aggregates AI provider, GitHub and Linear status feeds into a single pill list. Most data comes from Python backend scripts; the frontend is TypeScript/TSX transpiled to JSX.
 
 The repo also hosts other Mac customization code driven by the same design tokens: **Hammerspoon** config under `hammerspoon/`, **JankyBorders** config under `borders/`, a **Bartender** menu bar style codegen, a **Thaw** (Ice fork) menu bar codegen (reactivated 2026-05-27 on Thaw 2.0 beta after Bartender 6 proved unstable on Tahoe; manual-only, driving full bar appearance including glass background), a **Warp** terminal theme codegen, a deprecated **Slack** CSS-injection codegen (deprecated 2026-05-12: the asar-patch path was never reliable; the legacy `build:slack` sidebar string remains as a standalone manual option), an **Obsidian** CSS snippet codegen, and a flat-color-only **Spicetify** (Spotify) theme codegen. It also hosts provisioning for the **AdGuard CLI** filtering proxy under `scripts/adguard-proxy.mts`, which is neither theme-driven nor chained into any build.
 
