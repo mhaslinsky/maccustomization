@@ -9,9 +9,9 @@
 // A Spotify update replaces Apps/xpui.spa with a stock copy, so the patch and
 // every extension vanish until `spicetify backup apply` runs again. Updates to
 // Spotify also tend to outrun the installed Spicetify, so healing upgrades the
-// CLI first. Everything `apply` injects (theme, extensions, custom apps) must
-// live on disk under ~/.config/spicetify: Marketplace's install ledger sits in
-// ~/Library/Caches and is wiped by updates, so it cannot be restored.
+// CLI first. Everything `apply` injects (theme, extensions, custom apps) should
+// live on disk under ~/.config/spicetify: Marketplace's install ledger
+// sits in ~/Library/Caches, which Spotify occasionally rebuilds (Aug 12 and 27).
 
 import { execFileSync, spawnSync } from "node:child_process";
 import {
@@ -183,7 +183,7 @@ function configProblems(): string[] {
   const problems: string[] = [];
   const theme = config.get("Setting.current_theme") ?? "";
   if (theme === "marketplace") {
-    problems.push("current_theme is 'marketplace', whose install ledger does not survive Spotify updates");
+    problems.push("current_theme is 'marketplace'; its install ledger is lost if Spotify rebuilds ~/Library/Caches");
   } else if (theme && !existsSync(join(SPICETIFY_THEMES, theme))) {
     problems.push(`current_theme '${theme}' has no folder under ${SPICETIFY_THEMES}`);
   }
