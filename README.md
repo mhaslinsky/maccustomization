@@ -193,14 +193,14 @@ Run `python3 weather_fetch.py --source` to print whether the current run used `e
 
 ### Status (`status_fetch.py`)
 
-No configuration needed. Fetches twelve public status sources in parallel:
+No configuration needed. Fetches eleven public status sources in parallel:
 
 - [Claude](https://status.claude.com), [OpenAI](https://status.openai.com), [Kimi](https://status.moonshot.cn), [MiniMax](https://status.minimax.io), [GitHub](https://www.githubstatus.com), [Linear](https://linearstatus.com): statuspage.io `summary.json`
 - [Gemini](https://status.cloud.google.com): Google Cloud `incidents.json`, filtered to ongoing incidents whose `affected_products` include "Gemini". Operational otherwise.
 - [Meta AI](https://ai.developer.meta.com/status/): the public `api.meta.ai/v1/status` feed
 - [OpenRouter](https://status.openrouter.ai): the overall banner, scraped from the server-rendered page
 - [DeepSeek](https://status.deepseek.com): the open incidents from the Flashcat page's `summary/active` API
-- Grok and Qwen: liveness probes only (the API host answered), shown as "API reachable" rather than "Operational"
+- [Grok](https://status.x.ai): the incidents in `status.x.ai/feed.xml` not yet resolved (the site's JSON and HTML are Cloudflare-blocked; the RSS feed is not)
 
 When a provider reports a non-operational indicator, the description renders as a click-through link to that provider's public dashboard. Operational rows stay plain text.
 
