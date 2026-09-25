@@ -6,11 +6,13 @@
 - Gemini: https://status.cloud.google.com/incidents.json — filtered to
   ongoing incidents whose affected_products include "Gemini".
 - GitHub: https://www.githubstatus.com (statuspage.io summary.json)
-- Jira:   https://jira-software.status.atlassian.com (statuspage.io summary.json)
+- Linear: https://linearstatus.com (statuspage.io summary.json)
 - OpenRouter: https://status.openrouter.ai — an OnlineOrNot page with no JSON
   API of any kind, so the overall banner is scraped out of the SSR'd HTML.
 - Meta AI: https://api.meta.ai/v1/status — the public JSON feed behind the
   Model API console's status page. No API key required.
+- DeepSeek: https://status.deepseek.com, a Flashcat page whose JSON API lists
+  open incidents.
 - Grok (xAI): LIVENESS PROBE ONLY — see below.
 
 Output shape (consumed by src/Status.tsx):
@@ -52,7 +54,7 @@ CLAUDE_SUMMARY = 'https://status.claude.com/api/v2/summary.json'
 OPENAI_SUMMARY = 'https://status.openai.com/api/v2/summary.json'
 GOOGLE_INCIDENTS = 'https://status.cloud.google.com/incidents.json'
 GITHUB_SUMMARY = 'https://www.githubstatus.com/api/v2/summary.json'
-JIRA_SUMMARY = 'https://jira-software.status.atlassian.com/api/v2/summary.json'
+LINEAR_SUMMARY = 'https://linearstatus.com/api/v2/summary.json'
 OPENROUTER_PAGE = 'https://status.openrouter.ai/'
 
 # xAI has no reachable status feed, so we settle for "did the host answer".
@@ -70,15 +72,17 @@ META_STATUS = 'https://api.meta.ai/v1/status'
 MOONSHOT_SUMMARY = 'https://status.moonshot.cn/api/v2/summary.json'
 MINIMAX_SUMMARY = 'https://status.minimax.io/api/v2/summary.json'
 
-# No reachable status feed — liveness probes only. Both return 401
+# DeepSeek's status page runs on Flashcat, and its front end reads this endpoint
+# for open incidents. The number is DeepSeek's Flashcat page ID, taken
+# from the page's own payload (the url_name "deepseek" is rejected with HTTP 400).
+# Unreachable from outside China until at least 2026-07-14; reachable 2026-09-25.
+DEEPSEEK_ACTIVE = 'https://status.deepseek.com/api/status-page/6410630422455/summary/active'
+
+# No reachable status feed, so a liveness probe only. It returns 401
 # unauthenticated, which is the "host is answering" signal probe_liveness wants.
 # A probe pill earns its place only when its click-through lands on a real
-# status page a human can read; both of these do.
-#   DeepSeek: status.deepseek.com resolves to statuspage.flashcat.cloud, a
-#     Beijing Alibaba NLB. The TLS handshake never completes from outside China
-#     (connection reset), so there is nothing to fetch — not a bot wall, just
-#     unreachable. Do not retry.
-#   Qwen: no Qwen-specific feed. Alibaba Cloud's page covers every cloud service
+# status page a human can read.
+#   Qwen: no Qwen-specific feed (re-checked 2026-09-25). Alibaba Cloud's page covers every cloud service
 #     and is not a statuspage.io feed (302), but it is at least a page worth
 #     opening when something looks wrong.
 #
@@ -87,7 +91,6 @@ MINIMAX_SUMMARY = 'https://status.minimax.io/api/v2/summary.json'
 # is a statuspage.io marketing shell, not a real page). An unverifiable green
 # pill whose link goes nowhere useful is worse than no pill. Don't re-add it
 # without a real feed.
-DEEPSEEK_PROBE = 'https://api.deepseek.com/v1/models'
 QWEN_PROBE = 'https://dashscope.aliyuncs.com/compatible-mode/v1/models'
 
 # Public dashboards for click-through when a provider reports an issue.
@@ -95,7 +98,7 @@ CLAUDE_DASHBOARD = 'https://status.claude.com'
 OPENAI_DASHBOARD = 'https://status.openai.com'
 GEMINI_DASHBOARD = 'https://status.cloud.google.com'
 GITHUB_DASHBOARD = 'https://www.githubstatus.com'
-JIRA_DASHBOARD = 'https://jira-software.status.atlassian.com'
+LINEAR_DASHBOARD = 'https://linearstatus.com'
 OPENROUTER_DASHBOARD = 'https://status.openrouter.ai'
 XAI_DASHBOARD = 'https://status.x.ai'
 META_DASHBOARD = 'https://ai.developer.meta.com/status/'
@@ -293,6 +296,50 @@ def meta_status() -> dict[str, Any]:
     return {'indicator': indicator, 'description': message or service_status.replace('_', ' ').title()}
 
 
+# Flashcat's per-component vocabulary, mapped onto statuspage.io's, with a rank
+# so the worst affected component wins. These four are the values DeepSeek's
+# incident history has used.
+FLASHCAT_COMPONENT_STATUS = {
+    'operational': ('none', 0),
+    'degraded': ('minor', 1),
+    'partial_outage': ('major', 2),
+    'full_outage': ('critical', 3),
+}
+
+
+def deepseek_status() -> dict[str, Any]:
+    """DeepSeek status from the open incidents on its Flashcat page.
+
+    An empty active_changes list means nothing is open; otherwise the worst
+    affected component wins. An open incident never reports better than
+    'minor', even with an unrecognized status value or no component marked down
+    yet: it is still a declared incident and must not render as operational.
+    """
+    data = fetch_json(DEEPSEEK_ACTIVE, timeout=10)
+    payload = data.get('data') if isinstance(data, dict) else None
+    active = payload.get('active_changes') if isinstance(payload, dict) else None
+    if not isinstance(active, list):
+        raise RuntimeError(f'Unexpected summary/active shape: {str(data)[:200]}')
+
+    if not active:
+        return {'indicator': 'none', 'description': 'All Systems Operational'}
+
+    worst_indicator, worst_rank = 'minor', 1
+    for change in active:
+        components = change.get('affected_components') if isinstance(change, dict) else None
+        for component in components or []:
+            if not isinstance(component, dict):
+                continue
+            status = str(component.get('status') or '').lower()
+            indicator, rank = FLASHCAT_COMPONENT_STATUS.get(status, ('minor', 1))
+            if rank > worst_rank:
+                worst_indicator, worst_rank = indicator, rank
+
+    count = len(active)
+    description = f'{count} ongoing incident' + ('' if count == 1 else 's')
+    return {'indicator': worst_indicator, 'description': description}
+
+
 def safe_provider(fn, label: str, *args) -> dict[str, Any]:
     try:
         block = fn(*args)
@@ -320,17 +367,17 @@ PROVIDERS = [
     ('openrouter', 'ai', 'OpenRouter', OPENROUTER_DASHBOARD, openrouter_status),
     ('kimi', 'ai', 'Kimi', MOONSHOT_DASHBOARD, statuspage_summary, MOONSHOT_SUMMARY, 'Kimi'),
     ('minimax', 'ai', 'MiniMax', MINIMAX_DASHBOARD, statuspage_summary, MINIMAX_SUMMARY, 'MiniMax'),
+    ('deepseek', 'ai', 'DeepSeek', DEEPSEEK_DASHBOARD, deepseek_status),
 
     # Then the liveness probes, kept together so the weaker "API reachable"
     # signal reads as one block rather than salting the verified rows. These
     # have no feed we can reach (see the probe constants above); the pill is
     # honest about that, and each links to a status page worth opening.
     ('grok', 'ai', 'Grok', XAI_DASHBOARD, probe_liveness, XAI_PROBE),
-    ('deepseek', 'ai', 'DeepSeek', DEEPSEEK_DASHBOARD, probe_liveness, DEEPSEEK_PROBE),
     ('qwen', 'ai', 'Qwen', QWEN_DASHBOARD, probe_liveness, QWEN_PROBE),
 
     ('github', 'dev', 'GitHub', GITHUB_DASHBOARD, statuspage_summary, GITHUB_SUMMARY, 'GitHub'),
-    ('jira', 'dev', 'Jira', JIRA_DASHBOARD, statuspage_summary, JIRA_SUMMARY, 'Jira'),
+    ('linear', 'dev', 'Linear', LINEAR_DASHBOARD, statuspage_summary, LINEAR_SUMMARY, 'Linear'),
 ]
 
 

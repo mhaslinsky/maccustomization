@@ -6,7 +6,7 @@ A single-source-of-truth theming stack for a Mac desktop. One TypeScript theme f
 
 **Übersicht widgets** (`src/*.tsx` → root `*.jsx`) — Five widgets for [Übersicht](https://github.com/felixhageloh/uebersicht), rendered as React-style JSX inside its WebView:
 
-- **Status** — Claude / OpenAI / Gemini / GitHub / Jira public status feeds, aggregated into one pill list
+- **Status**: AI provider, GitHub and Linear public status feeds, aggregated into one pill list
 - **Weather** — Open-Meteo, fixed coords or Mac geolocation
 - **Calendar** — macOS Calendar via a Swift EventKit helper
 - **Now Playing** — Spotify + [Kaset](https://kaset.app/) via AppleScript, with playback controls
@@ -138,7 +138,7 @@ The `Theme` contract includes an optional `icons` map — a per-widget string of
 
 | Script | Used by | Refresh |
 |--------|---------|---------|
-| `status_fetch.py` | Status (Claude / OpenAI / Gemini / GitHub / Jira) | 2 min — kept deliberately responsive for outage warning |
+| `status_fetch.py` | Status (AI providers, GitHub, Linear) | 2 min, kept deliberately responsive for outage warning |
 | `weather_fetch.py` | Weather (Open-Meteo, env / geo) | 10 min |
 | `calendar_fetch.py` | Calendar (prefers EventKit helper when present) | 5 min |
 | `calendar_eventkit` (built from `calendar_eventkit.swift`) | Fast calendar reads for `calendar_fetch.py` | (N/A — invoked per calendar fetch) |
@@ -193,13 +193,14 @@ Run `python3 weather_fetch.py --source` to print whether the current run used `e
 
 ### Status (`status_fetch.py`)
 
-No configuration needed. Fetches five public status feeds in parallel:
+No configuration needed. Fetches twelve public status sources in parallel:
 
-- [Claude](https://status.claude.com) — statuspage.io `summary.json`
-- [OpenAI](https://status.openai.com) — statuspage.io `summary.json`
-- [Gemini](https://status.cloud.google.com) — Google Cloud `incidents.json`, filtered to ongoing incidents whose `affected_products` include "Gemini". Operational otherwise.
-- [GitHub](https://www.githubstatus.com) — statuspage.io `summary.json`
-- [Jira](https://jira-software.status.atlassian.com) — statuspage.io `summary.json`
+- [Claude](https://status.claude.com), [OpenAI](https://status.openai.com), [Kimi](https://status.moonshot.cn), [MiniMax](https://status.minimax.io), [GitHub](https://www.githubstatus.com), [Linear](https://linearstatus.com): statuspage.io `summary.json`
+- [Gemini](https://status.cloud.google.com): Google Cloud `incidents.json`, filtered to ongoing incidents whose `affected_products` include "Gemini". Operational otherwise.
+- [Meta AI](https://ai.developer.meta.com/status/): the public `api.meta.ai/v1/status` feed
+- [OpenRouter](https://status.openrouter.ai): the overall banner, scraped from the server-rendered page
+- [DeepSeek](https://status.deepseek.com): the open incidents from the Flashcat page's `summary/active` API
+- Grok and Qwen: liveness probes only (the API host answered), shown as "API reachable" rather than "Operational"
 
 When a provider reports a non-operational indicator, the description renders as a click-through link to that provider's public dashboard. Operational rows stay plain text.
 
