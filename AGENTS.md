@@ -16,8 +16,9 @@ Design tokens live in `src/themes/`. The currently-active theme is re-exported t
 - **`npm run build:<target>`** — `widgets`, `hammerspoon`, `borders`, `bartender`, `warp`, `obsidian`, `spicetify`, `slack`, `slack-css`, or `thaw`. Use when iterating on one codegen.
 - **`npm run theme`** — list themes + show current.
 - **`npm run theme <name>`** — switch active theme + rebuild everything.
-- **`npm run typecheck`**: `tsc --noEmit`. No test suite; `npm test` is a placeholder. Because `tsconfig.json` includes only `src/**`, nothing under `scripts/` is typechecked and `@types/node` is not installed; the `.mts` scripts run on Node's type stripping alone.
+- **`npm run typecheck`**: `tsc --noEmit`. `npm test` runs `node --test` over `scripts/*.test.mts` (the only tests in the repo). Because `tsconfig.json` includes only `src/**`, nothing under `scripts/` is typechecked and `@types/node` is not installed; the `.mts` scripts run on Node's type stripping alone.
 - **`npm run adguard:check`** / **`npm run adguard:apply`**: report or reconcile the AdGuard filtering proxy setup. Not chained into `npm run build`, because unlike every other codegen here it changes live system network settings. See README "Network filtering" before touching it, particularly the note that `apply` deliberately does not restart AdGuard.
+- **`npm run spicetify:check`** / **`spicetify:heal`** / **`spicetify:install-agent`**: report, repair, or install the LaunchAgent that re-applies Spicetify after Spotify auto-updates. Install only from the primary checkout; the agent runs the script in place. See skill `spicetify-flat-theme`.
 
 ## Working in this repo
 
