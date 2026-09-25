@@ -44,6 +44,7 @@ const AGENT_NODE = "/opt/homebrew/bin/node";
 const FALLBACK_INTERVAL_SECONDS = 300;
 // The updater rewrites the bundle in stages; patching mid-write backs up a torn copy.
 const SETTLE_SECONDS = 90;
+const FAILURE_BACKOFF_SECONDS = 6 * 60 * 60;
 
 export type AppsState = "stock" | "mixed" | "applied" | "invalid";
 
@@ -222,15 +223,40 @@ function notifyOncePerVersion(spotifyVersion: string, message: string): void {
   notify(message);
 }
 
-function heal(): number {
+const FAILURE_MARKER = join(STATE_DIR, "last-failure");
+
+// A failed heal restarts Spotify, so the scheduled agent must not retry it every
+// interval. Backoff is per Spotify version: an update gets a fresh attempt.
+function inFailureBackoff(spotifyVersion: string): boolean {
+  if (!existsSync(FAILURE_MARKER)) return false;
+  const failedVersion = readFileSync(FAILURE_MARKER, "utf8").trim();
+  const ageSeconds = (Date.now() - statSync(FAILURE_MARKER).mtimeMs) / 1000;
+  return failedVersion === spotifyVersion && ageSeconds < FAILURE_BACKOFF_SECONDS;
+}
+
+function recordFailure(spotifyVersion: string, message: string): number {
+  mkdirSync(STATE_DIR, { recursive: true });
+  writeFileSync(FAILURE_MARKER, spotifyVersion);
+  log(message);
+  notify(`${message}. See ${LOG_PATH}`);
+  return 1;
+}
+
+function heal(scheduled: boolean): number {
   let snapshot = readSnapshot();
   let action = decide(snapshot);
-  if (action.kind === "healthy") return 0;
+  if (action.kind === "healthy") {
+    if (existsSync(FAILURE_MARKER)) unlinkSync(FAILURE_MARKER);
+    return 0;
+  }
+
+  if (scheduled && inFailureBackoff(snapshot.spotifyVersion)) {
+    log(`skipped: the last heal for Spotify ${snapshot.spotifyVersion} failed; retrying after the backoff or on the next update`);
+    return 1;
+  }
 
   if (action.kind === "broken") {
-    log(`cannot heal: ${action.reason}`);
-    notify(`Cannot re-apply: ${action.reason}`);
-    return 1;
+    return recordFailure(snapshot.spotifyVersion, `Cannot re-apply: ${action.reason}`);
   }
 
   const settledFor = secondsSinceBundleChange();
@@ -272,10 +298,7 @@ function heal(): number {
       throw new Error(`still unhealthy after apply: ${detail}`);
     }
   } catch (error) {
-    const message = (error as Error).message;
-    log(`heal failed: ${message}`);
-    notify(`Re-apply failed: ${message}. See ${LOG_PATH}`);
-    return 1;
+    return recordFailure(snapshot.spotifyVersion, `Re-apply failed: ${(error as Error).message}`);
   }
 
   log(`healed: Spotify ${snapshot.spotifyVersion} patched with spicetify ${snapshot.cliVersion}`);
@@ -295,6 +318,7 @@ function agentPlist(scriptPath: string): string {
     <string>${escape(AGENT_NODE)}</string>
     <string>${escape(scriptPath)}</string>
     <string>heal</string>
+    <string>--scheduled</string>
   </array>
   <key>WatchPaths</key>
   <array>
@@ -345,7 +369,12 @@ function uninstall(): number {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const commands: Record<string, () => number> = { check, heal, install, uninstall };
+  const commands: Record<string, () => number> = {
+    check,
+    heal: () => heal(process.argv.includes("--scheduled")),
+    install,
+    uninstall,
+  };
   const commandName = process.argv[2] ?? "check";
   const command = commands[commandName];
   if (!command) {
