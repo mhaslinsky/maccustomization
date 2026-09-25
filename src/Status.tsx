@@ -61,7 +61,6 @@ interface ProviderBlock {
 // the click-through to the provider's own dashboard.
 const SHORT_STATUS: [RegExp, string][] = [
   [/^Unavailable:/i, "Unavailable"],
-  [/^Unreachable:/i, "Unreachable"],
   [/^Partially Degraded/i, "Degraded"],
   [/^Partial (System )?Outage/i, "Partial Outage"],
   [/^Minor Service Outage/i, "Minor Outage"],
@@ -83,16 +82,10 @@ interface StatusPayload {
 
 function pillClass(indicator: string | undefined): "good" | "warn" | "bad" {
   if (indicator === "none" || indicator === "operational" || indicator === "up") return "good";
-  if (indicator === "reachable") return "good";
   if (indicator === "minor" || indicator === "degraded" || indicator === "warning") return "warn";
   return "bad";
 }
 
-// "reachable" is green but deliberately NOT operational: it means the provider
-// has no status feed and all we did was confirm its API host answered (Grok,
-// Meta AI — see status_fetch.py). Excluding it here is what keeps its honest
-// "API reachable" wording instead of collapsing it to "Operational", which
-// would claim a health check we never performed.
 function isOperational(indicator: string | undefined): boolean {
   return indicator === "none" || indicator === "operational" || indicator === "up";
 }

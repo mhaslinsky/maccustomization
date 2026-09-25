@@ -13,7 +13,7 @@
   Model API console's status page. No API key required.
 - DeepSeek: https://status.deepseek.com, a Flashcat page whose JSON API lists
   open incidents.
-- Grok (xAI): LIVENESS PROBE ONLY — see below.
+- Grok (xAI): https://status.x.ai/feed.xml, the site's RSS incident feed.
 
 Output shape (consumed by src/Status.tsx):
 {
@@ -27,24 +27,20 @@ Output shape (consumed by src/Status.tsx):
 
 Indicators are normalized to the statuspage.io vocabulary
 ("none" / "minor" / "major" / "critical") so the widget's pill-class
-mapping works uniformly across all providers, plus one extra value:
+mapping works uniformly across all providers.
 
-  "reachable" — the provider has NO usable status feed and all we know is
-  that its API host answered. It renders green but keeps its own wording
-  ("API reachable"), because collapsing it to "Operational" would be a lie:
-  a liveness probe cannot see a declared incident or a degradation.
-
-Why Grok is a probe rather than a feed:
-  xAI publishes real per-region data at data.x.ai/status/*.json, but that host
-  sits behind Cloudflare and 403s any non-browser client (it screens on TLS
-  fingerprint, so a spoofed User-Agent does not help). urllib cannot reach it,
-  so there is nothing to parse. Do not retry this — it has been tried.
+Why Grok reads RSS rather than JSON:
+  xAI's per-region JSON at data.x.ai/status/*.json, and every status.x.ai page
+  (including /grok-build), sit behind Cloudflare and 403 any non-browser client.
+  Cloudflare screens TLS fingerprints, so a spoofed User-Agent does not help.
+  The RSS feed at status.x.ai/feed.xml is the only path it lets through
+  (verified 2026-09-25).
 """
 from __future__ import annotations
 import concurrent.futures as cf
 import json
 import re
-import urllib.error
+import xml.etree.ElementTree as ET
 from typing import Any
 
 from widget_helpers import fetch_json, fetch_text, utc_timestamp, safe_main
@@ -57,9 +53,9 @@ GITHUB_SUMMARY = 'https://www.githubstatus.com/api/v2/summary.json'
 LINEAR_SUMMARY = 'https://linearstatus.com/api/v2/summary.json'
 OPENROUTER_PAGE = 'https://status.openrouter.ai/'
 
-# xAI has no reachable status feed, so we settle for "did the host answer".
-# 401 unauthenticated is a fine signal for that — see probe_liveness.
-XAI_PROBE = 'https://api.x.ai/v1/models'
+# Full incident history for every xAI service (API regions, grok.com, the apps,
+# Grok Build), newest first; resolved incidents stay in it.
+XAI_FEED = 'https://status.x.ai/feed.xml'
 
 # The real feed behind the console's "Model API Status" page. Public — needs no
 # API key (verified: identical payload with no key and with a bogus one), so the
@@ -78,20 +74,12 @@ MINIMAX_SUMMARY = 'https://status.minimax.io/api/v2/summary.json'
 # Unreachable from outside China until at least 2026-07-14; reachable 2026-09-25.
 DEEPSEEK_ACTIVE = 'https://status.deepseek.com/api/status-page/6410630422455/summary/active'
 
-# No reachable status feed, so a liveness probe only. It returns 401
-# unauthenticated, which is the "host is answering" signal probe_liveness wants.
-# A probe pill earns its place only when its click-through lands on a real
-# status page a human can read.
-#   Qwen: no Qwen-specific feed (re-checked 2026-09-25). Alibaba Cloud's page covers every cloud service
-#     and is not a statuspage.io feed (302), but it is at least a page worth
-#     opening when something looks wrong.
-#
-# GLM (Zhipu) was probed and REMOVED on 2026-07-14: it publishes no status page
-# at all (status.bigmodel.cn 301s to the Zhipu homepage; zhipuai.statuspage.io
-# is a statuspage.io marketing shell, not a real page). An unverifiable green
-# pill whose link goes nowhere useful is worse than no pill. Don't re-add it
-# without a real feed.
-QWEN_PROBE = 'https://dashscope.aliyuncs.com/compatible-mode/v1/models'
+# Providers with no status feed get no pill. Removed for that reason:
+#   GLM (Zhipu), 2026-07-14: no status page at all (status.bigmodel.cn 301s to
+#     the Zhipu homepage; zhipuai.statuspage.io is a marketing shell).
+#   Qwen, 2026-09-25: no Qwen-specific status host (status.qwen.ai does not
+#     resolve), only Alibaba Cloud's page covering every cloud service.
+# Don't re-add either without a real feed.
 
 # Public dashboards for click-through when a provider reports an issue.
 CLAUDE_DASHBOARD = 'https://status.claude.com'
@@ -105,7 +93,6 @@ META_DASHBOARD = 'https://ai.developer.meta.com/status/'
 MOONSHOT_DASHBOARD = 'https://status.moonshot.cn'
 MINIMAX_DASHBOARD = 'https://status.minimax.io'
 DEEPSEEK_DASHBOARD = 'https://status.deepseek.com'
-QWEN_DASHBOARD = 'https://status.alibabacloud.com'
 
 
 def statuspage_summary(url: str, fallback_label: str) -> dict[str, Any]:
@@ -206,35 +193,6 @@ def openrouter_status() -> dict[str, Any]:
     raise RuntimeError('No known status banner found (page format changed?)')
 
 
-def probe_liveness(url: str) -> dict[str, Any]:
-    """Report whether a provider's API host is answering at all.
-
-    This is the fallback for providers with no machine-readable status feed.
-    It is deliberately weak, and the wording it returns says so.
-
-    An HTTP response — including 401/403/404 — means the host is up and
-    serving; we have no credentials and do not need them, since the question
-    is only "is anyone home". A 5xx means the host is up but broken. A
-    transport failure (DNS, refused, timeout) means it is unreachable.
-
-    What this CANNOT see: declared incidents, elevated latency, a partial
-    region outage, or a model-tier degradation. The host answers 401 through
-    all of them. Hence indicator 'reachable' rather than 'none' — the widget
-    renders it green but keeps the honest label instead of the word
-    "Operational".
-    """
-    try:
-        fetch_text(url, timeout=10)
-    except urllib.error.HTTPError as exc:
-        if exc.code >= 500:
-            return {'indicator': 'major', 'description': f'API error (HTTP {exc.code})'}
-        # 4xx: the host answered. That is the signal we came for.
-        return {'indicator': 'reachable', 'description': 'API reachable'}
-    except Exception as exc:
-        return {'indicator': 'critical', 'description': f'Unreachable: {exc}'}
-    return {'indicator': 'reachable', 'description': 'API reachable'}
-
-
 # Meta's service_status vocabulary, mapped onto the statuspage.io one.
 META_SERVICE_STATUS = {
     'operational': 'none',
@@ -253,8 +211,7 @@ def meta_status() -> dict[str, Any]:
 
     This is a real status feed, not a liveness ping: it can report a degradation
     and can flag an individual model (e.g. muse-spark-1.1) while the host stays
-    up. So it gets a normal indicator rather than the 'reachable' fallback used
-    for Grok.
+    up.
 
     Only the non-operational vocabulary beyond "operational" is inferred — Meta
     documents no enum, and the live feed has only ever returned "operational".
@@ -340,6 +297,61 @@ def deepseek_status() -> dict[str, Any]:
     return {'indicator': worst_indicator, 'description': description}
 
 
+# xAI's per-incident severity. Only 'available' has been observed (every item in
+# the feed on 2026-09-25 was resolved), so the other values are matched by
+# keyword, first match wins ('partial' precedes 'outage' so partial_outage is
+# major); anything unrecognized falls back to 'minor'.
+XAI_SEVERITY_KEYWORDS = [
+    ('partial', 'major', 2),
+    ('unavailable', 'critical', 3),
+    ('outage', 'critical', 3),
+    ('down', 'critical', 3),
+    ('degrad', 'minor', 1),
+]
+XAI_STATUS_LINE = re.compile(r'Status:\s*([A-Za-z_ ]+?)\s*<')
+XAI_SEVERITY_LINE = re.compile(r'Severity:\s*([A-Za-z_ ]+?)\s*<')
+
+
+def grok_status() -> dict[str, Any]:
+    """Grok status from the status.x.ai RSS incidents not yet RESOLVED.
+
+    Each item's HTML description opens with "Status: RESOLVED" (or another
+    state) and "Severity: <value>". An item without a Status line, or a feed
+    with no items, means the format changed: that raises rather than reading as
+    an all-clear. As with DeepSeek, an open incident never reports better than
+    'minor'.
+    """
+    channel = ET.fromstring(fetch_text(XAI_FEED, timeout=10)).find('channel')
+    items = channel.findall('item') if channel is not None else []
+    if not items:
+        raise RuntimeError('No items in feed.xml (format changed?)')
+
+    open_severities: list[str] = []
+    for item in items:
+        description = item.findtext('description') or ''
+        status = XAI_STATUS_LINE.search(description)
+        if status is None:
+            raise RuntimeError(f'No Status line in feed item {item.findtext("guid")!r}')
+        if status.group(1).strip().upper() != 'RESOLVED':
+            severity = XAI_SEVERITY_LINE.search(description)
+            open_severities.append(severity.group(1).strip().lower() if severity else '')
+
+    if not open_severities:
+        return {'indicator': 'none', 'description': 'All Systems Operational'}
+
+    worst_indicator, worst_rank = 'minor', 1
+    for severity in open_severities:
+        for keyword, indicator, rank in XAI_SEVERITY_KEYWORDS:
+            if keyword in severity:
+                if rank > worst_rank:
+                    worst_indicator, worst_rank = indicator, rank
+                break
+
+    count = len(open_severities)
+    description = f'{count} ongoing incident' + ('' if count == 1 else 's')
+    return {'indicator': worst_indicator, 'description': description}
+
+
 def safe_provider(fn, label: str, *args) -> dict[str, Any]:
     try:
         block = fn(*args)
@@ -354,10 +366,10 @@ def safe_provider(fn, label: str, *args) -> dict[str, Any]:
 
 
 # The panel, in render order. Each entry: (key, group, label, dashboard URL,
-# fetch fn, *fn args). Kept as a table rather than 13 hand-written dict literals
+# fetch fn, *fn args). Kept as a table rather than hand-written dict literals
 # so adding a provider is one line and the parallel fetch below stays generic.
 PROVIDERS = [
-    # Real status feeds first — these pills mean something. Moonshot and MiniMax
+    # Moonshot and MiniMax
     # publish genuine statuspage.io feeds (with "Kimi" and "Large Language
     # Models (LLM)" components respectively), so they need no special handling.
     ('claude', 'ai', 'Claude', CLAUDE_DASHBOARD, statuspage_summary, CLAUDE_SUMMARY, 'Claude'),
@@ -368,13 +380,7 @@ PROVIDERS = [
     ('kimi', 'ai', 'Kimi', MOONSHOT_DASHBOARD, statuspage_summary, MOONSHOT_SUMMARY, 'Kimi'),
     ('minimax', 'ai', 'MiniMax', MINIMAX_DASHBOARD, statuspage_summary, MINIMAX_SUMMARY, 'MiniMax'),
     ('deepseek', 'ai', 'DeepSeek', DEEPSEEK_DASHBOARD, deepseek_status),
-
-    # Then the liveness probes, kept together so the weaker "API reachable"
-    # signal reads as one block rather than salting the verified rows. These
-    # have no feed we can reach (see the probe constants above); the pill is
-    # honest about that, and each links to a status page worth opening.
-    ('grok', 'ai', 'Grok', XAI_DASHBOARD, probe_liveness, XAI_PROBE),
-    ('qwen', 'ai', 'Qwen', QWEN_DASHBOARD, probe_liveness, QWEN_PROBE),
+    ('grok', 'ai', 'Grok', XAI_DASHBOARD, grok_status),
 
     ('github', 'dev', 'GitHub', GITHUB_DASHBOARD, statuspage_summary, GITHUB_SUMMARY, 'GitHub'),
     ('linear', 'dev', 'Linear', LINEAR_DASHBOARD, statuspage_summary, LINEAR_SUMMARY, 'Linear'),
@@ -382,7 +388,7 @@ PROVIDERS = [
 
 
 def main() -> None:
-    # Fetch in parallel. Sequentially, 13 providers — three of them on Chinese
+    # Fetch in parallel. Sequentially, eleven providers, some on Chinese
     # hosts that can hang until the timeout — could take longer than the widget's
     # 120s refresh interval and stack up processes. Fan out instead: the run now
     # costs roughly the slowest single provider, not the sum of all of them.
