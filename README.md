@@ -198,7 +198,7 @@ No configuration needed. Fetches eleven public status sources in parallel:
 - [Claude](https://status.claude.com), [OpenAI](https://status.openai.com), [Kimi](https://status.moonshot.cn), [MiniMax](https://status.minimax.io), [GitHub](https://www.githubstatus.com), [Linear](https://linearstatus.com): statuspage.io `summary.json`
 - [Gemini](https://status.cloud.google.com): Google Cloud `incidents.json`, filtered to ongoing incidents whose `affected_products` include "Gemini". Operational otherwise.
 - [Meta AI](https://ai.developer.meta.com/status/): the public `api.meta.ai/v1/status` feed
-- [OpenRouter](https://status.openrouter.ai): the overall banner, scraped from the server-rendered page
+- [OpenRouter](https://status.openrouter.ai): component statuses and open incidents from the Datadog status page's `config.json`
 - [DeepSeek](https://status.deepseek.com): the open incidents from the Flashcat page's `summary/active` API
 - [Grok](https://status.x.ai): the incidents in `status.x.ai/feed.xml` not yet resolved (the site's JSON and HTML are Cloudflare-blocked; the RSS feed is not)
 
