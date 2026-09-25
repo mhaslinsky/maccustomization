@@ -1,0 +1,28 @@
+.claude/skills/backend-fetchers/SKILL.md
+  s_950521bd648bcd::t_01cd1070f96a28 12
+status_fetch.py
+  s_950521bd648bcd::t_6d7d16a712caae 16
+  s_950521bd648bcd::t_b6f101a8f77416 35-37
+  s_950521bd648bcd::t_8ca1d3eb644597 30-34,43,56-58,77-82,214,300-301,304,306-354,369,372,383
+  s_950521bd648bcd::t_b2f5a927cce86b 302-303,305
+  s_950521bd648bcd::t_4aa2ddb47664ce 391
+README.md
+  s_950521bd648bcd::t_31d0678da04c09 196
+  s_950521bd648bcd::t_364448599eb05e 203
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "05a7568622d24225e89d79cf7973805b806c40ad",
+  "prompts": {},
+  "sessions": {
+    "s_950521bd648bcd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c88d1ba8-b575-4c0a-8c94-572e40573788",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
