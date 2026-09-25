@@ -7,8 +7,8 @@
   ongoing incidents whose affected_products include "Gemini".
 - GitHub: https://www.githubstatus.com (statuspage.io summary.json)
 - Linear: https://linearstatus.com (statuspage.io summary.json)
-- OpenRouter: https://status.openrouter.ai — an OnlineOrNot page with no JSON
-  API of any kind, so the overall banner is scraped out of the SSR'd HTML.
+- OpenRouter: https://status.openrouter.ai/config.json, the JSON its Datadog
+  status page renders from.
 - Meta AI: https://api.meta.ai/v1/status — the public JSON feed behind the
   Model API console's status page. No API key required.
 - DeepSeek: https://status.deepseek.com, a Flashcat page whose JSON API lists
@@ -51,7 +51,9 @@ OPENAI_SUMMARY = 'https://status.openai.com/api/v2/summary.json'
 GOOGLE_INCIDENTS = 'https://status.cloud.google.com/incidents.json'
 GITHUB_SUMMARY = 'https://www.githubstatus.com/api/v2/summary.json'
 LINEAR_SUMMARY = 'https://linearstatus.com/api/v2/summary.json'
-OPENROUTER_PAGE = 'https://status.openrouter.ai/'
+# OpenRouter moved from OnlineOrNot to Datadog Status Pages by 2026-09-25. The
+# page is now a client-rendered shell; its script loads this file.
+OPENROUTER_CONFIG = 'https://status.openrouter.ai/config.json'
 
 # Full incident history for every xAI service (API regions, grok.com, the apps,
 # Grok Build), newest first; resolved incidents stay in it.
@@ -159,38 +161,61 @@ def gemini_status() -> dict[str, Any]:
     return {'indicator': worst_indicator, 'description': description}
 
 
-# OnlineOrNot renders exactly one of these phrases as the overall banner.
-# Ordered worst-first so a page showing several never reports the mildest.
-OPENROUTER_BANNERS = [
-    ('Major Outage', 'critical'),
-    ('Partial Outage', 'major'),
-    ('Degraded Performance', 'minor'),
-    ('Under Maintenance', 'minor'),
-    ('All Systems Operational', 'none'),
-]
+# Datadog Status Pages' component vocabulary (the five values in the page's
+# script), ranked so the worst component wins, paired with the display label.
+DATADOG_COMPONENT_STATUS = {
+    'operational': ('none', 0, 'All Systems Operational'),
+    'maintenance': ('minor', 1, 'Under Maintenance'),
+    'degraded': ('minor', 1, 'Degraded Performance'),
+    'partial_outage': ('major', 2, 'Partial Outage'),
+    'major_outage': ('critical', 3, 'Major Outage'),
+}
+
+
+def datadog_components(components: list[Any]) -> list[dict[str, Any]]:
+    """Flatten Datadog's components, which are either leaves with a status or
+    ComponentGroups holding a nested components list."""
+    leaves: list[dict[str, Any]] = []
+    for component in components:
+        if not isinstance(component, dict):
+            continue
+        if component.get('type') == 'ComponentGroup':
+            leaves.extend(datadog_components(component.get('components') or []))
+        else:
+            leaves.append(component)
+    return leaves
 
 
 def openrouter_status() -> dict[str, Any]:
-    """Scrape OpenRouter's overall status banner out of its SSR'd HTML.
+    """OpenRouter status from its Datadog status page's config.json.
 
-    status.openrouter.ai is an OnlineOrNot page: no /api/v2/summary.json, no
-    /summary.json, and the embedded react-router payload is an index-encoded
-    turbo-stream that is far more brittle to parse than the banner text. The
-    page is server-rendered and not bot-walled, so the phrase is right there.
-
-    Matching on the phrase rather than the element's Tailwind classes keeps
-    this alive across a restyle; a class-list match would not survive one.
+    The worst component status wins. An unresolved incident or a status value
+    outside the known five lifts an otherwise operational page to at least
+    'minor'; neither may render as operational. No components at all means the
+    format changed, which raises.
     """
-    html = fetch_text(OPENROUTER_PAGE)
-    for phrase, indicator in OPENROUTER_BANNERS:
-        if re.search(r'>\s*' + re.escape(phrase), html):
-            description = 'All Systems Operational' if indicator == 'none' else phrase
-            return {'indicator': indicator, 'description': description}
+    data = fetch_json(OPENROUTER_CONFIG, timeout=10)
+    components = datadog_components(data.get('components') or []) if isinstance(data, dict) else []
+    if not components:
+        raise RuntimeError('No components in config.json (format changed?)')
 
-    # No known banner matched. The page format changed, or we got served
-    # something other than the status page. That is NOT an all-clear — an
-    # unparseable page must never render as operational.
-    raise RuntimeError('No known status banner found (page format changed?)')
+    worst_indicator, worst_rank, worst_label = 'none', 0, 'All Systems Operational'
+    for component in components:
+        status = str(component.get('status') or '').lower()
+        indicator, rank, label = DATADOG_COMPONENT_STATUS.get(
+            status, ('minor', 1, f'Unrecognized status: {status or "missing"}'))
+        if rank > worst_rank:
+            worst_indicator, worst_rank, worst_label = indicator, rank, label
+
+    open_incidents = [
+        incident for incident in data.get('incidents') or []
+        if isinstance(incident, dict) and not incident.get('resolved')
+    ]
+    if open_incidents and worst_rank == 0:
+        count = len(open_incidents)
+        return {'indicator': 'minor', 'description': f'{count} ongoing incident' + ('' if count == 1 else 's')}
+
+    return {'indicator': worst_indicator, 'description': worst_label}
 
 
 # Meta's service_status vocabulary, mapped onto the statuspage.io one.
