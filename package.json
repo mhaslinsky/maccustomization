@@ -9,6 +9,10 @@
     "verify": "node scripts/verify-controls.mjs",
     "adguard:check": "node scripts/adguard-proxy.mts check",
     "adguard:apply": "node scripts/adguard-proxy.mts apply",
+    "spicetify:check": "node scripts/spicetify-heal.mts check",
+    "spicetify:heal": "node scripts/spicetify-heal.mts heal",
+    "spicetify:install-agent": "node scripts/spicetify-heal.mts install",
+    "test": "node --test scripts/*.test.mts",
     "build:hammerspoon": "node scripts/build-hammerspoon-theme.mjs",
     "build:borders": "node scripts/build-borders-config.mjs",
     "build:bartender": "node scripts/build-bartender-theme.mjs",
@@ -20,8 +24,7 @@
     "build:spicetify": "node scripts/build-spicetify-theme.mjs",
     "status:slack-app": "node scripts/patch-slack-app.mjs --status",
     "theme": "node scripts/switch-theme.mjs",
-    "typecheck": "tsc --noEmit",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
