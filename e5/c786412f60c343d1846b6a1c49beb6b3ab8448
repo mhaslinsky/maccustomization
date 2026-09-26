@@ -1,0 +1,25 @@
+README.md
+  s_249c26fef3f53c::t_31cc3e0d0766fe 27,100,160
+  s_249c26fef3f53c::t_07f5085ccdfefc 95-99
+  s_249c26fef3f53c::t_65b1da6ef83783 162-163,166
+  s_249c26fef3f53c::t_c58a460d5b8a6c 3
+  s_249c26fef3f53c::t_0a3151466657b8 28,116,136
+AGENTS.md
+  s_249c26fef3f53c::t_87532bfdd67bf3 5,7,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e5c786412f60c343d1846b6a1c49beb6b3ab8448",
+  "prompts": {},
+  "sessions": {
+    "s_249c26fef3f53c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0dc37-60c2-7bf3-9321-b481cfa48375",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Michael Haslinsky <mike.haslinsky@creditgenie.com>"
+    }
+  }
+}
