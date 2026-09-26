@@ -1,6 +1,6 @@
 # Mac desktop customization
 
-A single-source-of-truth theming stack for a Mac desktop. One TypeScript theme file drives the look of every layer at once — desktop widgets, window focus borders, menu bar, terminal, Slack, Obsidian, and the Hammerspoon scripting runtime — so `npm run theme <name>` re-skins the whole desktop in one pass.
+A TypeScript theme file supplies colors to the chained consumers: Übersicht widgets, window borders, menu bar, Warp, Obsidian, and Hammerspoon. Spicetify, Thaw, and Slack share that pointer but require manual builds, so `npm run theme <name>` updates only the chained consumers.
 
 ## What's in here
 
@@ -24,7 +24,8 @@ The first four auto-flow as a vertical column on the left — heights are measur
   - **Sidebar legacy theme string** (`build:slack`, standalone) — copies the 10-color theme string to your clipboard for paste into Preferences → Themes → "Paste your legacy theme colors". Quick, official, but only paints the workspace switcher rail + active highlight; nothing else.
   - **Full CSS injection** via app.asar patch (`sudo -E node scripts/patch-slack-app.mjs` + `npm run build:slack-css`) — patches Slack.app's renderer preload to load `~/.config/slack-uber-theme/theme.css` at startup. Deprecated 2026-05-12 and no longer chained into `npm run build`; the asar-patch path was never reliable. Unsupported by Slack, requires App Management for the terminal + Slack moved to `~/Applications/`, and breaks every Slack auto-update — see `.claude/skills/slack-theme/SKILL.md` for the full caveats and recovery via the `--restore` flag
 - **[Obsidian](https://obsidian.md/)** — emits a per-vault CSS snippet at `<vault>/.obsidian/snippets/uber-theme.css` and enables it in `appearance.json`. Auto-discovers vaults from Obsidian's registry (`~/Library/Application Support/obsidian/obsidian.json`) so opening a new vault picks it up on the next build; no per-vault config. Composes with whatever main theme the user has selected (Default / AnuPpuccin / Catppuccin / etc.) by overriding Obsidian's CSS variables and applying glass-surface treatment for translucent themes. Requires Settings → Appearance → "Translucent window" toggled on for the wallpaper-bleed-through to work
-- **[Thaw](https://github.com/stonerl/Thaw)** (Ice fork) — deprecated 2026-04-24 in favor of Bartender; codegen kept as a manual-invoke fallback
+- **Spicetify (Spotify)**: Generates a flat-color theme from shared tokens. It remains a manual target because it claims `current_theme` from Spicetify Marketplace.
+- **[Thaw](https://github.com/stonerl/Thaw)** (Ice fork): reactivated 2026-05-27 for the Thaw 2.0 beta after Bartender 6 proved unstable on Tahoe. It remains a manual target and drives the menu bar tint, border and gradient, plus the glass background for themes that set `controls.thaw.background`.
 
 **Window management** (`aerospace/aerospace.toml`, `scripts/dock-layout.mts`): [AeroSpace](https://github.com/nikitabobko/AeroSpace) as a workspace manager, not a tiling WM. Every window floats, so windows keep the position and size macOS gives them; the only thing AeroSpace adds is which workspace a window belongs to.
 
@@ -91,7 +92,12 @@ Widget **source** lives in TypeScript under `src/`. Übersicht loads the compile
 
 Optional: **`npm run typecheck`** runs `tsc --noEmit` only.
 
-`npm run build` runs these in order: `build:widgets` → `validate:controls` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:obsidian`. They're also available individually if you only need one target (handy when tuning colors; e.g., theme tweaks that only affect widgets can just run `build:widgets`). `build:slack` (the legacy 10-color sidebar string codegen, clipboard-only, manual paste), `build:thaw`, and `build:spicetify` are not part of the default chain; all three still exist as manual-invoke targets. See `AGENTS.md` and the `slack-theme` / `thaw-menu-bar` / `spicetify-flat-theme` skill docs for context. `build:spicetify` left the chain on 2026-08-08 because it unconditionally claims `current_theme` in `config-xpui.ini`, which meant every build silently reverted a theme installed through Spicetify Marketplace.
+- **`npm run build:<target>`** supports `widgets`, `hammerspoon`, `borders`, `bartender`, `warp`, `obsidian`, `spicetify`, `slack`, `slack-css`, and `thaw`.
+- Before a standalone Thaw build, run `npm run build:widgets && npm run build:thaw` so it reads freshly compiled themes.
+- **`npm test`** runs `node --test scripts/*.test.mts`. Scripts are not typechecked because `tsconfig.json` includes only `src/` and root declaration files, and `@types/node` is not installed. The `.mts` scripts run on Node's type stripping alone.
+- **`npm run spicetify:check`**, **`npm run spicetify:heal`**, and **`npm run spicetify:install-agent`** report, repair, or install the LaunchAgent that reapplies Spicetify after Spotify updates. Install the agent only from the primary checkout. See `.claude/skills/spicetify-flat-theme/SKILL.md`.
+
+`npm run build` runs these in order: `build:widgets` → `validate:controls` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:obsidian`. Run a single target when changing only that output (for example, `build:widgets`). `build:spicetify` left the chain on 2026-08-08 because it unconditionally claims `current_theme` in `config-xpui.ini`, so running it resets theme selection from Spicetify Marketplace. See the `slack-theme`, `thaw-menu-bar`, and `spicetify-flat-theme` skill docs for manual build caveats.
 
 The widget build (`scripts/build-widgets.mjs`) uses esbuild to **transpile** (not bundle) each source file — TypeScript and JSX are converted but imports are left intact. It produces:
 
@@ -107,7 +113,7 @@ Design tokens live as one TypeScript file per theme in `src/themes/`. The curren
 
 - **`npm run theme`** — lists all themes, marks the current one with `*`.
 - **`npm run theme <name>`** — switches the active theme and reruns the chained codegens. Widgets re-render, JankyBorders hot-reloads, Bartender quits and relaunches to pick up the new style, the Warp YAML is refreshed, and each registered Obsidian vault's snippet is rewritten + hot-reloaded. Spicetify, Thaw, and Slack are **not** touched: run those targets by hand if you want them to follow.
-- **Add a new theme**: copy `src/themes/default.ts` to `src/themes/<name>.ts`, tweak the values (the type checker enforces shape parity), then `npm run theme <name>`. See `AGENTS.md` for the full field reference.
+- **Add a new theme**: copy `src/themes/default.ts` to `src/themes/<name>.ts`, edit the values (the type checker enforces shape parity), then run `npm run theme <name>`. See the `theme-authoring` skill listed in `AGENTS.md` for the full field reference.
 
 Themes currently in the repo: **default** (cyan/amber/green/purple accents on a dark translucent card, baseline), **liquid-glass** (iOS Tahoe light frosted), **liquid-glass-dark** (Control Center smoked variant), **catppuccin-macchiato** (Catppuccin Macchiato palette with pastel Sky/Peach/Green/Mauve accents, Inter UI font, and Nerd Font glyphs in widget titles), **frutiger-aero** (2004-era Web 2.0 Gloss — sky-blue Aero glass card, glossy greens, warm sun yellows, bright and optimistic).
 
@@ -127,7 +133,7 @@ The `Theme` contract includes an optional `icons` map — a per-widget string of
 
 ## Layout and design
 
-- **`src/themes/<theme>.ts`** — per-theme design tokens: `accents` (per-widget colors), `layout` (typography/spacing/blur/shadow), `status` (good/warn/bad palette), `primary` (cross-program brand accent — drives JankyBorders' active/inactive window border colors and width, plus Bartender's menu bar border stroke), `menuBarTint` (dedicated accent for Bartender's menu bar gradient edge and Warp's terminal accent; retained in the theme contract because Ice caps main-bar tint at 20% alpha in the deprecated Thaw codegen, and translucent accents like liquid-glass's white vanish there — it also happens to be the right saturated color to hand Bartender for its gradient edge and Warp for its cursor), and `icons` (optional per-widget glyphs rendered in each widget's h1 title — typically Nerd Font codepoints paired with a Nerd Font tail fallback in `layout.fontStack`).
+- **`src/themes/<theme>.ts`**: per-theme design tokens, including `accents` (per-widget colors), `layout` (typography, spacing, blur, and shadow), `status` (good, warn, and bad colors), `primary` (cross-program accent for JankyBorders window borders and Bartender's menu bar border), `menuBarTint` (Bartender's gradient-edge stop and Thaw's tint and gradient; Warp uses it for accent and cursor only when `layout.cardBg` is fully opaque, and every current theme is translucent, so Warp takes `accents.status.h1`; kept distinct from translucent `primary.active`, which may be too faint on the menu bar), and `icons` (optional per-widget glyphs, typically Nerd Font codepoints with a Nerd Font fallback in `layout.fontStack`).
 - **`src/themes/_types.ts`** — shared `Theme` type contract every theme file must satisfy.
 - **`src/widget_theme.ts`** — thin façade that owns widget-structural bits (`STACK` fallback positions, `FLOW_ORDER` stack order, the `buildWidgetClassName()` CSS builder, and the `layoutWidgets()` auto-flow trigger) and re-exports the swappable tokens from the active theme.
 - **`globals.d.ts`** / **`uebersicht.d.ts`** — ambient types for the widget runtime (`geolocation`, `import { run } from "uebersicht"`, etc.).
@@ -151,12 +157,13 @@ Commands in the widgets reference `"$HOME/Library/Application Support/Übersicht
 
 ## Configuration (environment)
 
-Each Python fetcher reads variables from **the process environment first**, then from an optional **env file** (same `KEY=value` lines, `#` comments allowed). Use either mechanism.
+Python fetchers that accept configuration read process environment variables first, then merge values from matching dotenv files. They check `~/.config/<widget>-widget.env` and `<repo>/.<widget>-widget.env`. Env files use `KEY=value` syntax and accept `#` comments. The table below lists env file paths for each widget.
 
-| Widget | Env file paths (first match wins) |
-|--------|-----------------------------------|
+| Widget | Env file paths (checked in order; later values override earlier ones) |
+|--------|-----------------------------------------------------------------------|
 | Weather | `~/.config/weather-widget.env`, `widgets/.weather-widget.env` |
 | Calendar | `~/.config/calendar-widget.env`, `widgets/.calendar-widget.env` |
+| Now Playing | `~/.config/nowplaying-widget.env`, `widgets/.nowplaying-widget.env` |
 
 (`widgets/` here means the Übersicht widgets directory — `~/Library/Application Support/Übersicht/widgets/`, which is a symlink to `~/Developer/mac-customization/`.)
 

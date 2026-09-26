@@ -2,23 +2,11 @@
 
 Guidance for Claude Code working in this repository.
 
-## What this is
+## Project overview, commands, and configuration
 
-Desktop widgets for [Übersicht](https://github.com/felixhageloh/uebersicht): five widgets (Status, Weather, Calendar, Now Playing, Clock) rendered as React JSX inside Übersicht's WebView. Status aggregates AI provider, GitHub and Linear status feeds into a single pill list. Most data comes from Python backend scripts; the frontend is TypeScript/TSX transpiled to JSX.
+See `README.md` for the project overview, build commands, and configuration reference.
 
-The repo also hosts other Mac customization code driven by the same design tokens: **Hammerspoon** config under `hammerspoon/`, **JankyBorders** config under `borders/`, a **Bartender** menu bar style codegen, a **Thaw** (Ice fork) menu bar codegen (reactivated 2026-05-27 on Thaw 2.0 beta after Bartender 6 proved unstable on Tahoe; manual-only, driving full bar appearance including glass background), a **Warp** terminal theme codegen, a deprecated **Slack** CSS-injection codegen (deprecated 2026-05-12: the asar-patch path was never reliable; the legacy `build:slack` sidebar string remains as a standalone manual option), an **Obsidian** CSS snippet codegen, and a flat-color-only **Spicetify** (Spotify) theme codegen. It also hosts provisioning for the **AdGuard CLI** filtering proxy under `scripts/adguard-proxy.mts`, which is neither theme-driven nor chained into any build.
-
-Design tokens live in `src/themes/`. The currently-active theme is re-exported through `src/themes/_active.ts`; every chained consumer (widgets, Hammerspoon, JankyBorders, Bartender, Warp, Obsidian) reads through that single pointer, so switching themes changes the look everywhere on the next `npm run build`. Spicetify reads the same pointer but is **not** chained (see the `npm run build` note below), so `npm run theme <name>` leaves its generated files stale until you run `npm run build:spicetify` deliberately. That is the intended state while Spotify is themed through Spicetify Marketplace.
-
-## Commands
-
-- **`npm run build`** — runs `build:widgets` → `validate:controls` → `build:hammerspoon` → `build:borders` → `build:bartender` → `build:warp` → `build:obsidian` in sequence. (`build:thaw` is manual-only — not chained while the Thaw 2.0 beta stabilizes; run `npm run build:widgets && npm run build:thaw` so it reads fresh compiled themes. `build:spicetify` is manual-only as of 2026-08-08: it unconditionally claims `current_theme` in `config-xpui.ini`, so chaining it silently reverted any theme installed through Spicetify Marketplace. `build:slack-css` is deprecated; `build:slack` was always standalone.)
-- **`npm run build:<target>`** — `widgets`, `hammerspoon`, `borders`, `bartender`, `warp`, `obsidian`, `spicetify`, `slack`, `slack-css`, or `thaw`. Use when iterating on one codegen.
-- **`npm run theme`** — list themes + show current.
-- **`npm run theme <name>`** — switch active theme + rebuild everything.
-- **`npm run typecheck`**: `tsc --noEmit`. `npm test` runs `node --test` over `scripts/*.test.mts` (the only tests in the repo). Because `tsconfig.json` includes only `src/**`, nothing under `scripts/` is typechecked and `@types/node` is not installed; the `.mts` scripts run on Node's type stripping alone.
-- **`npm run adguard:check`** / **`npm run adguard:apply`**: report or reconcile the AdGuard filtering proxy setup. Not chained into `npm run build`, because unlike every other codegen here it changes live system network settings. See README "Network filtering" before touching it, particularly the note that `apply` deliberately does not restart AdGuard.
-- **`npm run spicetify:check`** / **`spicetify:heal`** / **`spicetify:install-agent`**: report, repair, or install the LaunchAgent that re-applies Spicetify after Spotify auto-updates. Install only from the primary checkout; the agent runs the script in place. See skill `spicetify-flat-theme`.
+The active theme is re-exported from `src/themes/_active.ts`; theme consumers read that pointer when they build.
 
 ## Working in this repo
 
@@ -41,7 +29,3 @@ Detailed guidance lives in `.claude/rules/` (always-on constraints) and `.claude
 | `aerospace/`, `scripts/dock-layout.mts`, workspace and dock-state layouts | README section "Window management" |
 | `scripts/adguard-proxy.mts`, HTTPS exclusions, system proxy wiring, AdGuard filter lists | README section "Network filtering" |
 | Widget build pipeline constraints (root `.jsx` small, ESM imports, backdrop-filter keepalive, cross-bundle state) | rule: `widget-build-invariants` (always loaded) |
-
-## Configuration
-
-Python fetchers read env vars from the process environment or dotenv files (`~/.config/<widget>-widget.env` or `<repo>/.<widget>-widget.env`). See README.md for the per-variable reference.
