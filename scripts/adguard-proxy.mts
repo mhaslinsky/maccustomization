@@ -13,7 +13,8 @@
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ADGUARD_CLI = "/opt/homebrew/bin/adguard-cli";
 const NETWORKSETUP = "/usr/sbin/networksetup";
@@ -28,12 +29,12 @@ const DEFAULT_NETWORK_SERVICE = "Wi-Fi";
 // Domains AdGuard must tunnel rather than re-sign. Every one of these is
 // reached by a client that pins certificates or ships its own CA bundle, so
 // interception breaks the connection outright instead of degrading it.
-interface ExclusionGroup {
+export interface ExclusionGroup {
   rationale: string;
   domains: string[];
 }
 
-const EXCLUSION_GROUPS: ExclusionGroup[] = [
+export const EXCLUSION_GROUPS: ExclusionGroup[] = [
   {
     // auth.openai.com is the OAuth token refresh host. Filtering it breaks every
     // refresh, dropping accounts from the pool and surfacing as
@@ -70,6 +71,15 @@ const EXCLUSION_GROUPS: ExclusionGroup[] = [
     rationale:
       "Okta Verify pins its certificates, so a re-signed chain fails the handshake and the app reports only a generic error",
     domains: ["okta.com", "oktacdn.com"],
+  },
+  {
+    rationale:
+      "Apple MobileAsset catalog and metadata requests for speech models reject the AdGuard CA with NSURLError -1202",
+    domains: [
+      "gdmf.apple.com",
+      "gdmf-ados.apple.com",
+      "mesu.apple.com",
+    ],
   },
 ];
 
@@ -154,7 +164,7 @@ function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
-function buildManagedBlock(): string[] {
+export function buildManagedBlock(): string[] {
   const lines = [BLOCK_START];
   for (const group of EXCLUSION_GROUPS) {
     lines.push(`# ${group.rationale}`);
@@ -375,9 +385,14 @@ function main(): number {
   return 0;
 }
 
-try {
-  process.exit(main());
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(2);
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
+  try {
+    process.exit(main());
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(2);
+  }
 }
