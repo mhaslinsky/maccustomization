@@ -13,6 +13,26 @@ test("Apple MobileAsset exclusions include the catalog and metadata hosts", () =
   assert.deepEqual(appleAssetGroup.domains, expectedAppleAssetDomains);
 });
 
+test("macOS update signing and MDM check-in hosts are tunnelled", () => {
+  const updateSigningGroup = EXCLUSION_GROUPS.find((group) =>
+    group.rationale.startsWith("macOS update signing and Jamf MDM"),
+  );
+
+  assert.ok(updateSigningGroup);
+  assert.deepEqual(updateSigningGroup.domains, ["gs.apple.com", "jamfcloud.com"]);
+});
+
+test("Credit Genie work hosts are tunnelled, including the Okta SCEP domain", () => {
+  const workGroup = EXCLUSION_GROUPS.find((group) =>
+    group.rationale.startsWith("Credit Genie work services"),
+  );
+
+  assert.ok(workGroup);
+  for (const domain of ["creditgenie.com", "awsapps.com", "slack.com", "atlassian.net"]) {
+    assert.ok(workGroup.domains.includes(domain), `${domain} missing from work group`);
+  }
+});
+
 test("every exclusion group domain appears in the rendered managed block", () => {
   const renderedLines = new Set(buildManagedBlock());
 

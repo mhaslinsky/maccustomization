@@ -81,6 +81,39 @@ export const EXCLUSION_GROUPS: ExclusionGroup[] = [
       "mesu.apple.com",
     ],
   },
+  {
+    rationale:
+      "macOS update signing and Jamf MDM check-in reject a re-signed chain; installs fail with kAMAuthInstallErrorServerNotReachable and check-in with NSURLError -1200",
+    domains: ["gs.apple.com", "jamfcloud.com"],
+  },
+  {
+    // login.creditgenie.com is Okta's custom domain and serves the Jamf SCEP
+    // endpoint for the device trust certificate; re-signing it failed the
+    // profile install with NSURLError -1202 (2026-10-08).
+    rationale:
+      "Credit Genie work services; company traffic is never filtered, and device trust and SSO reject a re-signed chain",
+    domains: [
+      "creditgenie.com",
+      "awsapps.com",
+      "aws.amazon.com",
+      "amazonaws.com",
+      "cloudflareaccess.com",
+      "cloudflareclient.com",
+      "slack.com",
+      "slack-edge.com",
+      "atlassian.net",
+      "atlassian.com",
+      "atl-paas.net",
+      "linear.app",
+      "zoom.us",
+      "datadoghq.com",
+      "snowflakecomputing.com",
+      "pagerduty.com",
+      "vanta.com",
+      "app.amplitude.com",
+      "aikido.dev",
+    ],
+  },
 ];
 
 const BLOCK_START = "# >>> mac-customization managed exclusions >>>";
