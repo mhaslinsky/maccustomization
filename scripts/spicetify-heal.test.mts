@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { classifyApps, decide, parseIni, type Snapshot } from "./spicetify-heal.mts";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { classifyApps, decide, parseIni, readAppsEntries, type Snapshot } from "./spicetify-heal.mts";
 
 const healthy: Snapshot = {
   appsState: "applied",
@@ -43,4 +46,15 @@ test("parseIni keeps empty values without swallowing the next line", () => {
   assert.equal(values.get("Setting.color_scheme"), "");
   assert.equal(values.get("Setting.current_theme"), "catppuccin");
   assert.equal(values.get("Backup.with"), "2.45.1");
+});
+
+test("a missing Apps folder reads as empty and is reported broken, not thrown", () => {
+  const root = mkdtempSync(join(tmpdir(), "spicetify-heal-"));
+  try {
+    const entries = readAppsEntries(join(root, "Apps"));
+    assert.deepEqual(entries, []);
+    assert.equal(classifyApps(entries), "invalid");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

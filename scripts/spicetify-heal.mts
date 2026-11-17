@@ -77,7 +77,7 @@ export function classifyApps(entries: { name: string; isDirectory: boolean }[]):
 // v2.45.1), so each action is the command spicetify itself would ask for.
 export function decide(snapshot: Snapshot): Action {
   if (snapshot.appsState === "invalid") {
-    return { kind: "broken", reason: "Spotify's Apps folder is empty; reinstall Spotify" };
+    return { kind: "broken", reason: "Spotify's Apps folder is empty or missing; reinstall Spotify" };
   }
   if (snapshot.appsState === "stock" || snapshot.appsState === "mixed") {
     return {
@@ -131,11 +131,17 @@ function notify(message: string): void {
   spawnSync("/usr/bin/osascript", ["-e", script], { stdio: "ignore" });
 }
 
-function readSnapshot(): Snapshot {
-  const entries = readdirSync(APPS_DIR, { withFileTypes: true }).map((entry) => ({
+// A failed update can delete Apps outright; that is the same "reinstall" case as an empty one.
+export function readAppsEntries(appsDir: string): { name: string; isDirectory: boolean }[] {
+  if (!existsSync(appsDir)) return [];
+  return readdirSync(appsDir, { withFileTypes: true }).map((entry) => ({
     name: entry.name,
     isDirectory: entry.isDirectory(),
   }));
+}
+
+function readSnapshot(): Snapshot {
+  const entries = readAppsEntries(APPS_DIR);
   const config = parseIni(readFileSync(SPICETIFY_CONFIG, "utf8"));
   return {
     appsState: classifyApps(entries),
@@ -162,7 +168,8 @@ function isPlaying(pid: number): boolean {
 }
 
 function secondsSinceBundleChange(): number {
-  const newest = Math.max(statSync(INFO_PLIST).mtimeMs, statSync(APPS_DIR).mtimeMs);
+  const appsMtime = existsSync(APPS_DIR) ? statSync(APPS_DIR).mtimeMs : 0;
+  const newest = Math.max(statSync(INFO_PLIST).mtimeMs, appsMtime);
   return (Date.now() - newest) / 1000;
 }
 
