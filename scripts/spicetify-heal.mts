@@ -24,7 +24,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SPOTIFY_APP = "/Applications/Spotify.app";
@@ -132,12 +132,26 @@ function notify(message: string): void {
 }
 
 // A failed update can delete Apps outright; that is the same "reinstall" case as an empty one.
+// Only ENOENT means absent; a permission error must surface, not read as "reinstall".
 export function readAppsEntries(appsDir: string): { name: string; isDirectory: boolean }[] {
-  if (!existsSync(appsDir)) return [];
-  return readdirSync(appsDir, { withFileTypes: true }).map((entry) => ({
-    name: entry.name,
-    isDirectory: entry.isDirectory(),
-  }));
+  try {
+    return readdirSync(appsDir, { withFileTypes: true }).map((entry) => ({
+      name: entry.name,
+      isDirectory: entry.isDirectory(),
+    }));
+  } catch (error) {
+    if ((error as { code?: string }).code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+function mtimeOrNull(path: string): number | null {
+  try {
+    return statSync(path).mtimeMs;
+  } catch (error) {
+    if ((error as { code?: string }).code === "ENOENT") return null;
+    throw error;
+  }
 }
 
 function readSnapshot(): Snapshot {
@@ -167,8 +181,9 @@ function isPlaying(pid: number): boolean {
   return assertions.includes(`Created for PID: ${pid}.`);
 }
 
+// Removing or replacing Apps bumps its parent's mtime, so a missing Apps falls back to Resources.
 function secondsSinceBundleChange(): number {
-  const appsMtime = existsSync(APPS_DIR) ? statSync(APPS_DIR).mtimeMs : 0;
+  const appsMtime = mtimeOrNull(APPS_DIR) ?? statSync(dirname(APPS_DIR)).mtimeMs;
   const newest = Math.max(statSync(INFO_PLIST).mtimeMs, appsMtime);
   return (Date.now() - newest) / 1000;
 }
@@ -262,14 +277,15 @@ function heal(scheduled: boolean): number {
     return 1;
   }
 
-  if (action.kind === "broken") {
-    return recordFailure(snapshot.spotifyVersion, `Cannot re-apply: ${action.reason}`);
-  }
-
+  // Settle before judging "broken": an update mid-swap can briefly leave Apps missing.
   const settledFor = secondsSinceBundleChange();
   if (settledFor < SETTLE_SECONDS) {
     log(`deferred: Spotify.app changed ${Math.round(settledFor)}s ago, waiting for the update to settle`);
     return 0;
+  }
+
+  if (action.kind === "broken") {
+    return recordFailure(snapshot.spotifyVersion, `Cannot re-apply: ${action.reason}`);
   }
 
   const pid = spotifyPid();
