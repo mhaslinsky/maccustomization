@@ -24,7 +24,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SPOTIFY_APP = "/Applications/Spotify.app";
@@ -132,12 +132,26 @@ function notify(message: string): void {
 }
 
 // A failed update can delete Apps outright; that is the same "reinstall" case as an empty one.
+// Only ENOENT means absent; a permission error must surface, not read as "reinstall".
 export function readAppsEntries(appsDir: string): { name: string; isDirectory: boolean }[] {
-  if (!existsSync(appsDir)) return [];
-  return readdirSync(appsDir, { withFileTypes: true }).map((entry) => ({
-    name: entry.name,
-    isDirectory: entry.isDirectory(),
-  }));
+  try {
+    return readdirSync(appsDir, { withFileTypes: true }).map((entry) => ({
+      name: entry.name,
+      isDirectory: entry.isDirectory(),
+    }));
+  } catch (error) {
+    if ((error as { code?: string }).code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+function mtimeOrNull(path: string): number | null {
+  try {
+    return statSync(path).mtimeMs;
+  } catch (error) {
+    if ((error as { code?: string }).code === "ENOENT") return null;
+    throw error;
+  }
 }
 
 function readSnapshot(): Snapshot {
@@ -167,8 +181,11 @@ function isPlaying(pid: number): boolean {
   return assertions.includes(`Created for PID: ${pid}.`);
 }
 
+// Removing a folder bumps its parent's mtime, so a missing Apps falls back to Resources, then Contents.
 function secondsSinceBundleChange(): number {
-  const appsMtime = existsSync(APPS_DIR) ? statSync(APPS_DIR).mtimeMs : 0;
+  const resourcesDir = dirname(APPS_DIR);
+  const appsMtime =
+    mtimeOrNull(APPS_DIR) ?? mtimeOrNull(resourcesDir) ?? statSync(dirname(resourcesDir)).mtimeMs;
   const newest = Math.max(statSync(INFO_PLIST).mtimeMs, appsMtime);
   return (Date.now() - newest) / 1000;
 }
@@ -234,11 +251,13 @@ const FAILURE_MARKER = join(STATE_DIR, "last-failure");
 
 // A failed heal restarts Spotify, so the scheduled agent must not retry it every
 // interval. Backoff is per Spotify version: an update gets a fresh attempt.
-function inFailureBackoff(spotifyVersion: string): boolean {
+// A bundle change after the failure (a reinstall at the same version) ends the backoff early.
+function inFailureBackoff(spotifyVersion: string, secondsSinceBundle: number): boolean {
   if (!existsSync(FAILURE_MARKER)) return false;
   const failedVersion = readFileSync(FAILURE_MARKER, "utf8").trim();
   const ageSeconds = (Date.now() - statSync(FAILURE_MARKER).mtimeMs) / 1000;
-  return failedVersion === spotifyVersion && ageSeconds < FAILURE_BACKOFF_SECONDS;
+  const changedSinceFailure = secondsSinceBundle < ageSeconds;
+  return failedVersion === spotifyVersion && ageSeconds < FAILURE_BACKOFF_SECONDS && !changedSinceFailure;
 }
 
 function recordFailure(spotifyVersion: string, message: string): number {
@@ -257,19 +276,20 @@ function heal(scheduled: boolean): number {
     return 0;
   }
 
-  if (scheduled && inFailureBackoff(snapshot.spotifyVersion)) {
+  // Settle before judging "broken": an update mid-swap can briefly leave Apps missing.
+  const settledFor = secondsSinceBundleChange();
+  if (settledFor < SETTLE_SECONDS) {
+    log(`deferred: Spotify.app changed ${Math.round(settledFor)}s ago, waiting for the update to settle`);
+    return 0;
+  }
+
+  if (scheduled && inFailureBackoff(snapshot.spotifyVersion, settledFor)) {
     log(`skipped: the last heal for Spotify ${snapshot.spotifyVersion} failed; retrying after the backoff or on the next update`);
     return 1;
   }
 
   if (action.kind === "broken") {
     return recordFailure(snapshot.spotifyVersion, `Cannot re-apply: ${action.reason}`);
-  }
-
-  const settledFor = secondsSinceBundleChange();
-  if (settledFor < SETTLE_SECONDS) {
-    log(`deferred: Spotify.app changed ${Math.round(settledFor)}s ago, waiting for the update to settle`);
-    return 0;
   }
 
   const pid = spotifyPid();

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { classifyApps, decide, parseIni, readAppsEntries, type Snapshot } from "./spicetify-heal.mts";
@@ -55,6 +55,18 @@ test("a missing Apps folder reads as empty and is reported broken, not thrown", 
     assert.deepEqual(entries, []);
     assert.equal(classifyApps(entries), "invalid");
   } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an unreadable parent throws instead of reading Apps as missing", () => {
+  const root = mkdtempSync(join(tmpdir(), "spicetify-heal-"));
+  mkdirSync(join(root, "Apps"));
+  chmodSync(root, 0o000);
+  try {
+    assert.throws(() => readAppsEntries(join(root, "Apps")), { code: "EACCES" });
+  } finally {
+    chmodSync(root, 0o755);
     rmSync(root, { recursive: true, force: true });
   }
 });
