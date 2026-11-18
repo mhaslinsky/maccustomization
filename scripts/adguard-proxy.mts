@@ -87,6 +87,11 @@ export const EXCLUSION_GROUPS: ExclusionGroup[] = [
     domains: ["gs.apple.com", "jamfcloud.com"],
   },
   {
+    rationale:
+      "iCloud services fail through AdGuard: Backdrop's CloudKit thumbnails load only with the proxy off, and contacts and calendar hosts log TLS errors",
+    domains: ["icloud.com", "icloud-content.com"],
+  },
+  {
     // login.creditgenie.com is Okta's custom domain and serves the Jamf SCEP
     // endpoint for the device trust certificate; re-signing it failed the
     // profile install with NSURLError -1202 (2026-10-08).
